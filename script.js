@@ -25,8 +25,11 @@
         g.fakemseev=(t,el,ko)=>el[g.de](g.mouseev(t,ko)),
         g.fakemseover=(el,ko)=>g.fakemseev('mouseover',el,ko),
         g.fakeclk=(el,ko)=>g.fakemseev('mousedown',el,ko),
-        g.menulock=s=>g.dc[g.qs]('#menu-bar-right').style.opacity=!s,
-        g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.dc[g.qsa]('#menu-bar-right>.menu-item')[m]),g.fakemseover(_x=g.dc[g.qs](`.settings-input-list :nth-child(${s}) .settings-input-enum`)),_x),
+        g.m_unlocked=!1,
+        g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
+        g.getmenu=m=>g.dc[g.qsa]('#menu-bar-right>.menu-item')[m],
+        g.getstoption=s=>g.dc[g.qs](`.settings-input-list :nth-child(${s}) .settings-input-enum`),
+        g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_x=g.getstoption(s)),_x),
         g.exitst=_=>(g.fakeclk(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
         // only works with dropdowns
         // get value of setting passed in m
@@ -49,6 +52,7 @@
 
         // Set up settings UI for mod
         // g.st={opt:[]},
+        // g.st.menu=g.getmenu(3),
         // g.st.add=(n,o,d)=>0,
         // g.st.makesection=(s,n)=>((_d=g.div())[g.cn]=g.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=n,(_c=g.div())[g.cn]='collapsible-cross',_c[g.it]='-',_d[g.ap](_t),_d[g.ap](_c),s.prepend(_d),_d),
         // g.st.makeentry=(s,n,o,d)=>((_d=g.div())[g.cn]=g.se,s.prepend(_d),_d),
@@ -57,18 +61,19 @@
         // Set up keybinds settings for mod
         // instead save when settings change + reset button
         // g.lsset('modkeybinds',g.km.b),
-        g.km={default:{rtdisp:'Digit1',wddisp:'Digit2',driveswitch:'KeyO',bsdisp:'Digit3',debug:'F2'}},
+        g.km={default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
         g.km.b=g.lsget('modkeybinds')||g.km.default,
         // Select the keybinds menu icon
-        g.km.menu=g.dc[g.qsa]('#menu-bar-right>.menu-item')[3],
+        g.km.menu=g.getmenu(3),
         g.km.reset=_=>(g.km.b=g.km.default),
-        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i[g.it]=v,_e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i[g.it]=v,
+            _e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
         g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',_e[g.ael]('mousedown',e=>g.km.reset()),s.prepend(_e),_e),
         // add styling for the reset button
         g.css.insertRule('#resetbttn:hover{background:#3b3b3b;}'),
         g.css.insertRule('#resetbttn{display:flex;align-items:center;justify-content:center;}'),
         // TODO add event listeners
-        g.km.draw=_=>(console.log('drawing...'),_s=g.dc[g.qs]('.settings-input-list'),g.km.resetbttn(_s),Object.entries(g.km.b).forEach(x=>g.km.makeentry(_s,x[0],x[1])),0),
+        g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),g.km.resetbttn(_s),Object.entries(g.km.b).forEach(x=>g.km.makeentry(_s,x[0],x[1])),0),
 
         // Add event listeners to test for opening keybinds menu and swapping of tabs
         //
@@ -86,7 +91,7 @@
         g.fpscnt.style.opacity=0,
         g.f3open=!1,
         // Add proxy F3 menu key (F2)
-        g.kydn(e=>e.code===g.km.b.debug?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
+        g.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
         g.kydn(e=>e.code==g.keybind('ToggleUI','KeyU')&&!g.uitoggle?(g.uitoggle=!0,g.tvisall()):0),
@@ -96,7 +101,7 @@
         g.fpscnt.children[1].style.display='block',
 
         // Add ui for error messages
-        g.style='display:none;position:absolute;z-index:20000;backdrop-filter:blur(10px);background:#66666666;color:white;',
+        g.style='display:none;position:absolute;z-index:999;backdrop-filter:blur(10px);background:#66666666;color:white;',
         (g.errdiv=g.div()).style=g.style+'left:0;top:50%;max-width:300px;padding:5px',
         g.addui(g.errdiv),
         g.errtocode=0,
@@ -123,7 +128,7 @@
         // Start loop roadtime
         setInterval(_=>(
             // check if debug menu is open
-            g.uidebug.style.display=='none'?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b.debug}.`):0,
+            g.uidebug.style.display=='none'?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`):0,
             // calculate distance to road line
             _p=g.p(),
             _r=g.l.points,
@@ -147,14 +152,24 @@
         // catch the reset key press, and driving keys
         g.kydn(e=>(rt.reset=e.code===g.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.keybind('Forward','KeyW'),g.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
         // toggle visibility of ui with '1' key
-        g.tvis(g.km.b.rtdisp,rt.ui),
+        g.tvis(g.km.b['Road Time Display'],rt.ui),
 
         // WHEEL DRIVE SWITCHER
         wd={},
 
-        wd.getstate=_=>(_s=(_x=g.getst(g.openst(4,12))).includes('All')?0:_x.includes('Front')?1:2,g.exitst(),_s),
+        wd.parse=s=>s.includes('All')?0:s.includes('Front')?1:2,
+        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst(4,12))),g.exitst(),_s),
         wd.switchstate=_=>(_s=g.getst(_x=g.openst(4,12)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
         wd.disp=x=>!x?'AWD':x==1?'FWD':'RWD',
+        wd.update=s=>wd.wddiv[g.it]=wd.disp(s),
+
+        // add event listener when menu is opened
+        wd.menu=g.getmenu(4),
+        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(12))[g.ael](
+            'mousedown',async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry))))
+        )):0,
+        wd.menu[g.ael]('mouseover',wd.updatelistener),
+        wd.menu[g.ael]('mousedown',wd.updatelistener),
 
         // Set up UI wheel drive
         (wd.ui=g.div()).style=g.style+'top:0;right:80px',
@@ -165,9 +180,9 @@
         g.addui(wd.ui),
 
         // toggle between awd and fwd
-        g.kydn(e=>e.code==g.km.b.driveswitch?wd.wddiv[g.it]=wd.disp(wd.switchstate()):0),
+        g.kydn(e=>e.code==g.km.b['Switch Drive']?wd.update(wd.switchstate()):0),
 
-        g.tvis(g.km.b.wddisp,wd.ui),
+        g.tvis(g.km.b['Drive Switch Display'],wd.ui),
 
         // BOOST STATE DISPLAY
         bs={state:!1,kydn:!1,tmode:!1},
@@ -179,7 +194,7 @@
         g.kyup(e=>e.code==g.keybind('Boost','ShiftLeft')?g.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
         // g.kydn(e=>e.code===g.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
 
-        g.tvis(g.km.b.bsdisp,bs.ui),
+        g.tvis(g.km.b['Boost Display'],bs.ui),
 
         g.wait(100),
         g.err('SCRIPT READY',2e3)
