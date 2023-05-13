@@ -2,7 +2,7 @@
     typeof __a=='undefined'?(
         // Setup global functions
         __a=0,
-        g={it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
+        g={it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',se:'settings-input-row mod-entry',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
         g.l=(g.dc=document)[g.qs]("#upcoming-container polyline"),
         //function that returns coords of player: [x, y]
         g.p=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
@@ -11,9 +11,9 @@
         g.div=_=>g.dc.createElement("div"),
         g.addui=e=>(e.className='mod-ui',g.bd[g.ap](e)),
         g.bd=g.dc.body,
-        g.ael=(t,e)=>g.bd.addEventListener(t,e),
-        g.kydn=e=>g.ael('keydown',e),
-        g.kyup=e=>g.ael('keyup',e),
+        g.aelb=(t,e)=>g.bd[g.ael](t,e),
+        g.kydn=e=>g.aelb('keydown',e),
+        g.kyup=e=>g.aelb('keyup',e),
         g.tvis=(k,el)=>g.kydn(e=>e.code===k?el.style.display=el.style.display=='none'?'block':'none':0),
         g.uivis=!0,
         g.uitoggle=!1,
@@ -43,10 +43,42 @@
         g.lsdflt=(n,k,d)=>(g.lsget(n)||{})[k]||d,
         g.keybind=(k,d)=>g.lsdflt('controls_keys',k,d),
         g.boosttoggled=_=>g.lsdflt('controls_keys_settings','toggleBoost',!1),
-        g.kmapd={rtdisp:'Digit1',wddisp:'Digit2',driveswitch:'KeyO',bsdisp:'Digit3',debug:'F2'},
-        g.kmap=g.lsget('modkeybinds')||g.kmapd,
+
+        g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
+
+
+        // Set up settings UI for mod
+        // g.st={opt:[]},
+        // g.st.add=(n,o,d)=>0,
+        // g.st.makesection=(s,n)=>((_d=g.div())[g.cn]=g.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=n,(_c=g.div())[g.cn]='collapsible-cross',_c[g.it]='-',_d[g.ap](_t),_d[g.ap](_c),s.prepend(_d),_d),
+        // g.st.makeentry=(s,n,o,d)=>((_d=g.div())[g.cn]=g.se,s.prepend(_d),_d),
+        // g.st.draw=_=>(_s=g.dc[g.qs]('.settings-input-list')),
+        
+        // Set up keybinds settings for mod
         // instead save when settings change + reset button
-        g.lsset('modkeybinds',g.kmap),
+        // g.lsset('modkeybinds',g.km.b),
+        g.km={default:{rtdisp:'Digit1',wddisp:'Digit2',driveswitch:'KeyO',bsdisp:'Digit3',debug:'F2'}},
+        g.km.b=g.lsget('modkeybinds')||g.km.default,
+        // Select the keybinds menu icon
+        g.km.menu=g.dc[g.qsa]('#menu-bar-right>.menu-item')[3],
+        g.km.reset=_=>(g.km.b=g.km.default),
+        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i[g.it]=v,_e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+        g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',_e[g.ael]('mousedown',e=>g.km.reset()),s.prepend(_e),_e),
+        // add styling for the reset button
+        g.css.insertRule('#resetbttn:hover{background:#3b3b3b;}'),
+        g.css.insertRule('#resetbttn{display:flex;align-items:center;justify-content:center;}'),
+        // TODO add event listeners
+        g.km.draw=_=>(console.log('drawing...'),_s=g.dc[g.qs]('.settings-input-list'),g.km.resetbttn(_s),Object.entries(g.km.b).forEach(x=>g.km.makeentry(_s,x[0],x[1])),0),
+
+        // Add event listeners to test for opening keybinds menu and swapping of tabs
+        //
+        // Check if in both the correct tab and the correct input type (keyboard), and check if the elements aren't already present
+        // Also add an event listener to the tab and input type switch while the menu is open
+        g.km.chkupdate=async _=>(await g.wait(10),(_o=g.bd[g.qs]('.settings-sidebar_options'))&&_o[g.ael]('mousedown',g.km.chkupdate),(_t=g.bd[g.qs]('.settings-sidebar_tabs'))&&_t[g.ael]('mousedown',g.km.chkupdate),
+            g.dc[g.qs]('.settings-sidebar_tab.option-selected:first-child')&&g.dc[g.qs]('.settings-sidebar_option.option-selected:first-child')&&!g.dc[g.qs]('#resetbttn')?g.km.draw():0),
+        g.km.menu[g.ael]('mousedown',g.km.chkupdate),
+        g.km.menu[g.ael]('mouseover',g.km.chkupdate),
+
 
         //open and hide debug menus
         await g.fakekey({"code":g.keybind('ToggleDebug','F3')},g.evroot),
@@ -54,7 +86,7 @@
         g.fpscnt.style.opacity=0,
         g.f3open=!1,
         // Add proxy F3 menu key (F2)
-        g.kydn(e=>e.code===g.kmap.debug?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
+        g.kydn(e=>e.code===g.km.b.debug?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
         g.kydn(e=>e.code==g.keybind('ToggleUI','KeyU')&&!g.uitoggle?(g.uitoggle=!0,g.tvisall()):0),
@@ -91,7 +123,7 @@
         // Start loop roadtime
         setInterval(_=>(
             // check if debug menu is open
-            g.uidebug.style.display=='none'?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.kmap.debug}.`):0,
+            g.uidebug.style.display=='none'?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b.debug}.`):0,
             // calculate distance to road line
             _p=g.p(),
             _r=g.l.points,
@@ -115,7 +147,7 @@
         // catch the reset key press, and driving keys
         g.kydn(e=>(rt.reset=e.code===g.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.keybind('Forward','KeyW'),g.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
         // toggle visibility of ui with '1' key
-        g.tvis(g.kmap.rtdisp,rt.ui),
+        g.tvis(g.km.b.rtdisp,rt.ui),
 
         // WHEEL DRIVE SWITCHER
         wd={},
@@ -133,9 +165,9 @@
         g.addui(wd.ui),
 
         // toggle between awd and fwd
-        g.kydn(e=>e.code==g.kmap.driveswitch?wd.wddiv[g.it]=wd.disp(wd.switchstate()):0),
+        g.kydn(e=>e.code==g.km.b.driveswitch?wd.wddiv[g.it]=wd.disp(wd.switchstate()):0),
 
-        g.tvis(g.kmap.wddisp,wd.ui),
+        g.tvis(g.km.b.wddisp,wd.ui),
 
         // BOOST STATE DISPLAY
         bs={state:!1,kydn:!1,tmode:!1},
@@ -147,7 +179,7 @@
         g.kyup(e=>e.code==g.keybind('Boost','ShiftLeft')?g.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
         // g.kydn(e=>e.code===g.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
 
-        g.tvis(g.kmap.bsdisp,bs.ui),
+        g.tvis(g.km.b.bsdisp,bs.ui),
 
         g.wait(100),
         g.err('SCRIPT READY',2e3)
