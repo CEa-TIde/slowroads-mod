@@ -127,7 +127,7 @@
         g.err=(e,t=1500)=>(clearTimeout(g.errtocode),g.errdiv[g.it]=e,g.errdiv.style.display='block',g.errtocode=setTimeout(_=>g.errdiv.style.display='none',t)),
 
         // wait a hot second to let engine catch up (otherwise the F3 menu isn't open yet)
-        g.wait(1000),
+        await g.wait(1000),
 
         // ROADTIME
         rt={sd:g.D(),ds:g.d(),hs:g.lsget('modrt_hs')||0,hsdist:g.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
@@ -214,7 +214,7 @@
 
         g.tvis(g.km.b['Boost Display'],bs.ui),
 
-        g.wait(100),
+        await g.wait(100),
         g.err('SCRIPT READY',2e3)
         
 ):undefined)()
