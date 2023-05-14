@@ -131,7 +131,8 @@
 
         // ROADTIME
         rt={sd:g.D(),ds:g.d(),hs:g.lsget('modrt_hs')||0,hsdist:g.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
-        // rt={sd:g.D(),ds:g.d(),hs:0,hsdist:0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
+
+        rt.time=v=>v?`${(v-=(_hh=g.fl(v/36e5))*36e5),_hh}:${(v-=(_m=g.fl(v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(v/1e3)).slice(-2)}`:'-',
 
         // Set up UI roadtime
         (rt.ui=g.div()).style=g.style+'left:50%;top:0;width:300px',
@@ -139,8 +140,9 @@
         _ad=_=>(_x=g.div(),_x.style='padding:5px',rt.ui[g.ap](_x),_x),
         rt.tdiv=_ad(),
         rt.ddiv=_ad(),
-        (rt.hsdiv=_ad())[g.it]='Highscore time: -',
-        (rt.dhsdiv=_ad())[g.it]='Highscore distance: -',
+        (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.time(g.lsget('modrt_hs'))}`,
+        (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.time(g.lsget('modrt_hsdist'))}`,
+        console.log(rt.ui),
         g.addui(rt.ui),
 
         // Start loop roadtime
@@ -159,12 +161,12 @@
             // Save the distance and time on pause, and keep dist+time frozen during pause
             g.paused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.d(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
             // parse time
-            _s=`${(_v=_sc,_v-=(_hh=g.fl(_v/36e5))*36e5),_hh}:${(_v-=(_m=g.fl(_v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(_v/1e3)).slice(-2)}`,
+            _s=rt.time(_sc),
             // write output
             rt.reset||_d>3.2||!rt.started
                 ?(rt.sd=g.D(),rt.ds=g.d(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
                 :(rt.tdiv[g.it]=`Time on road: ${_s}`,rt.ddiv[g.it]=`Distance: ${_dist.toFixed(2)}km`,
-                _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_s)):0,
+                _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_sc)):0,
                 _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.lsset('modrs_hsdist',_dist)):0)
         ),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
