@@ -28,7 +28,7 @@
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
         g.getmenu=m=>g.dc[g.qsa]('#menu-bar-right>.menu-item')[m],
-        g.getstoption=s=>g.dc[g.qs](`.settings-input-list :nth-child(${s}) .settings-input-enum`),
+        g.getstoption=s=>g.dc[g.qs](`.settings-input-list :not(.mod-entry):nth-child(${s}) .settings-input-enum`),
         g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_x=g.getstoption(s)),_x),
         g.exitst=_=>(g.fakeclk(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
         // only works with dropdowns
@@ -61,19 +61,29 @@
         // Set up keybinds settings for mod
         // instead save when settings change + reset button
         // g.lsset('modkeybinds',g.km.b),
-        g.km={default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
-        g.km.b=g.lsget('modkeybinds')||g.km.default,
+        g.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
+        (g.km.todefault=_=>g.km.b=g.lsget(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
+        // The order that the properties are displayed in the settings
+        g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
         // Select the keybinds menu icon
         g.km.menu=g.getmenu(3),
-        g.km.reset=_=>(g.km.b=g.km.default),
-        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i[g.it]=v,
-            _e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+        // Set a keybind and sync to local storage
+        g.km.setkey=(k,v)=>(g.km.b[k]=v,g.lsset(g.km.lsname,g.km.b)),
+        // Reset all keybinds to default values and delete the local storage entry
+        g.km.reset=_=>(g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.removeItem(g.km.lsname)),
+        // Add listener for clear button
+        g.km.addclear=(c,l,f)=>c[g.ael]('mousedown',e=>(f[g.it]='',g.km.setkey(l[g.it],''))),
+        // Create entry with a name and value, and prepend to settings
+        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
+            g.km.addclear(_c,_l,_i),_e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+        // Create reset button, and prepend to settings
         g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',_e[g.ael]('mousedown',e=>g.km.reset()),s.prepend(_e),_e),
         // add styling for the reset button
         g.css.insertRule('#resetbttn:hover{background:#3b3b3b;}'),
         g.css.insertRule('#resetbttn{display:flex;align-items:center;justify-content:center;}'),
         // TODO add event listeners
-        g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),g.km.resetbttn(_s),Object.entries(g.km.b).forEach(x=>g.km.makeentry(_s,x[0],x[1])),0),
+        // Draw all keybind options for the mod
+        g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
 
         // Add event listeners to test for opening keybinds menu and swapping of tabs
         //
@@ -165,7 +175,7 @@
 
         // add event listener when menu is opened
         wd.menu=g.getmenu(4),
-        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(12))[g.ael](
+        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(12))&&wd.entry[g.ael](
             'mousedown',async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry))))
         )):0,
         wd.menu[g.ael]('mouseover',wd.updatelistener),
