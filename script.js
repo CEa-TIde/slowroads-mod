@@ -63,19 +63,27 @@
         // g.lsset('modkeybinds',g.km.b),
         g.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
         (g.km.todefault=_=>g.km.b=g.lsget(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
-        // The order that the properties are displayed in the settings
+        // The order that the properties are displayed in the settings (reversed because it is added in reverse order)
         g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
         // Select the keybinds menu icon
         g.km.menu=g.getmenu(3),
         // Set a keybind and sync to local storage
         g.km.setkey=(k,v)=>(g.km.b[k]=v,g.lsset(g.km.lsname,g.km.b)),
-        // Reset all keybinds to default values and delete the local storage entry
-        g.km.reset=_=>(g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.removeItem(g.km.lsname)),
+        // stores the label and field of the field being edited
+        g.km.ed=['',null],
+        g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
+        // Start editing the selected field; if the field was already being edited, stop editing instead. If another field is already being edited, stop editing that first.
+        g.km.beginedit=(l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),f.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
+        g.km.aelbeginedit=(l,f)=>f[g.ael]('mousedown',e=>g.km.beginedit(l,f)),
+        g.km.edit=e=>g.km.ed[1]?(console.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
+        g.km.aeledit=f=>f[g.ael]('keydown',g.km.edit),
         // Add listener for clear button
-        g.km.addclear=(c,l,f)=>c[g.ael]('mousedown',e=>(f[g.it]='',g.km.setkey(l[g.it],''))),
+        g.km.aelclear=(c,l,f)=>c[g.ael]('mousedown',e=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],''))),
         // Create entry with a name and value, and prepend to settings
         g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
-            g.km.addclear(_c,_l,_i),_e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+            _i.tabIndex=-1,g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(_l,_i),g.km.aeledit(_i),_e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+        // Reset all keybinds to default values and delete the local storage entry
+        g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.removeItem(g.km.lsname)),
         // Create reset button, and prepend to settings
         g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',_e[g.ael]('mousedown',e=>g.km.reset()),s.prepend(_e),_e),
         // add styling for the reset button
