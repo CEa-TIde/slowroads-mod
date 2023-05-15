@@ -1,5 +1,4 @@
 //((?<=(.|\n))\/\/[^\n]*|\s*\n\s*)
-//(?!\n)$  -> \n
 (async _=>
     typeof __a=='undefined'?(
         // Setup global functions
@@ -9,17 +8,22 @@
         //function that returns coords of player: [x, y]
         g.p=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
         //function that returns the distance travelled
-        g.d=_=>parseInt(g.dc[g.qs]('#ui-debug-node')[g.it])/100,
+        g.dist=_=>parseInt(g.dc[g.qs]('#ui-debug-node')[g.it])/100,
         g.div=_=>g.dc.createElement("div"),
         g.addui=e=>(e.className='mod-ui',g.bd[g.ap](e)),
         g.bd=g.dc.body,
+
         g.aelb=(t,e)=>g.bd[g.ael](t,e),
         g.kydn=e=>g.aelb('keydown',e),
         g.kyup=e=>g.aelb('keyup',e),
+        g.kyprs=e=>(down=!1,g.kydn(e1=>!down?(down=!0,e(e1)):0),g.kyup(_=>down=!1)),
+        g.msedn=(el,e)=>el[g.ael]('mousedown',e),
+        g.mseup=(el,e)=>el[g.ael]('mouseup',e),
+        g.mseov=(el,e)=>el[g.ael]('mouseover',e),
+        g.mseclk=(el,e)=>(down=!1,g.msedn(el,e1=>!down?(down=!0,e(e1)):0),g.mseup(el,_=>down=!1)),
+
         g.tvis=(k,el)=>g.kydn(e=>e.code===k?el.style.display=el.style.display=='none'?'block':'none':0),
-        g.uivis=!0,
-        g.uitoggle=!1,
-        g.tvisall=_=>(g.uivis=!g.uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>x.style.opacity=g.uivis?1:0)),
+        g.tvisall=(uivis=!0,_=>(uivis=!uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>x.style.opacity=uivis?1:0))),
         g.paused=_=>g.dc[g.qs]('#game-paused').style.display=='block',
         g.keyev=(t,ko={bubbles:!0})=>new KeyboardEvent(t,ko),
         g.mouseev=(t,ko={bubbles:!0})=>new MouseEvent(t,ko),
@@ -32,8 +36,8 @@
         g.getmenu=m=>g.dc[g.qsa]('#menu-bar-right>.menu-item')[m],
         // ids of all menus (part of the menu icon src)
         g.menunames=['kofi','feedback','vol','controls','config','circle'],
-        g.getmenu=m=>(_m=Array.from(g.dc[g.qsa]('#menu-bar-right>.menu-item')).filter(x=>x.firstChild.src.includes(g.menunames[m]))).length?_m[0]:null,
-        g.getstoption=s=>(_o=Array.from(g.dc[g.qsa]('.settings-input-list .settings-input-row')).filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
+        g.getmenu=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>x.firstChild.src.includes(g.menunames[m]))).length?_m[0]:null,
+        g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
         g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_o=g.getstoption(s)),_o),
         g.exitst=_=>(g.fakeclk(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
         // only works with dropdowns
@@ -46,7 +50,7 @@
         g.lsset=(k,v)=>g.ls.setItem(k,JSON.stringify(v)),
         g.evroot=g.dc[g.qs]('#game-main'),
         g.uidebug=g.dc[g.qs]('#ui-debug'),
-        g.fpscnt=Array.from(g.dc[g.qsa]('body>div')).filter(x=>!x.id&&x.style['z-index']==1e4)[0],
+        g.fpscnt=[...g.dc[g.qsa]('body>div')].filter(x=>!x.id&&x.style['z-index']==1e4)[0],
 
         g.lsdflt=(n,k,d)=>(g.lsget(n)||{})[k]||d,
         g.keybind=(k,d)=>g.lsdflt('controls_keys',k,d),
@@ -54,6 +58,29 @@
 
         g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
 
+        // functions responsible for managing ui in the menus
+        g.ui={},
+
+        // change toggle to clicked state, and call callback function with either 0 or 1 given the new state (not checked if state changed)
+        g.ui.toggle=(t,el,e)=>(t.children[+!el].classList.remove('bool_selected'),t[el].classList.add('bool_selected'),e(el)),
+        // toggle collapse section
+        g.ui.collapse=(s,sc,cr)=>(_t=cr[g.it]=='-',_i=(_c=[...s.children]).indexOf(sc),_nxt=s[g.qs](`.collapsible:nth-child(n+${_i+2})`),_c.slice(_i+1,_nxt?_c.indexOf(_nxt):1e5).forEach(x=>x.style.display=_t?'none':'flex'),cr[g.it]=_t?'+':'-'),
+
+        // creation of ui components
+        g.ui.makebttn=(s,l,ed,eu=_=>0)=>((_el=g.div())[g.cn]=g.se,_el.id='resetbttn',_el[g.it]=l,g.msedn(_el,ed),g.mseup(_el,eu),s.prepend(_el),_el),
+        // g.ui.makekeybind=(s,l,d)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
+        //     g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
+        g.ui.maketoggle=(s,l,o1,o2,d,e)=>((_el=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=l,(_t=g.div())[g.cn]='settings-input-bool',
+            (_o1=g.div())[g.cn]=(_o2=g.div())[g.cn]='settings-input-bool_option',_o1[g.it]=o1,_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected'),
+            g.msedn(_o1,_=>g.ui.toggle(_t,0,e)),g.msedn(_o2,_=>g.ui.toggle(_t,1,e)),_t[g.ap](_o1,_o2),_el[g.ap](_l,_t),s.prepend(_el),_el),
+        g.ui.makedropdown=(s,l,o,e)=>0,
+        g.ui.makesection=(s,l)=>((_el=g.div())[g.cn]=g.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=l,(_c=g.div())[g.cn]='collapsible-cross',
+            g.msedn(),_c[g.it]='-',_el[g.ap](_t,_c),s.prepend(_el),_el),
+        g.ui.makeslider=(s,l,mn,mx,d,e)=>0,
+
+        // add styling ui
+        g.css.insertRule('#resetbttn:hover{background:#3b3b3b;}'),
+        g.css.insertRule('#resetbttn{display:flex;align-items:center;justify-content:center;}'),
 
         // Set up settings UI for mod
         // g.st={opt:[]},
@@ -78,34 +105,31 @@
         g.km.ed=['',null],
         g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
         // Start editing the selected field; if the field was already being edited, stop editing instead. If another field is already being edited, stop editing that first.
-        g.km.beginedit=(l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),f.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
-        g.km.aelbeginedit=(l,f)=>f[g.ael]('mousedown',e=>g.km.beginedit(l,f)),
+        g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
+        g.km.aelbeginedit=(s,l,f)=>g.msedn(f,e=>g.km.beginedit(s,l,f)),
         g.km.edit=e=>g.km.ed[1]?(console.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
         g.km.aeledit=f=>f[g.ael]('keydown',g.km.edit),
         // Add listener for clear button
-        g.km.aelclear=(c,l,f)=>c[g.ael]('mousedown',e=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],''))),
+        g.km.aelclear=(c,l,f)=>g.msedn(c,e=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],''))),
         // Create entry with a name and value, and prepend to settings
         g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
-            _i.tabIndex=-1,g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(_l,_i),g.km.aeledit(_i),_e[g.ap](_l),_e[g.ap](_c),_e[g.ap](_i),s.prepend(_e),_e),
+            g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
         // Reset all keybinds to default values and delete the local storage entry
         g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.removeItem(g.km.lsname)),
         // Create reset button, and prepend to settings
-        g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',_e[g.ael]('mousedown',e=>g.km.reset()),s.prepend(_e),_e),
-        // add styling for the reset button
-        g.css.insertRule('#resetbttn:hover{background:#3b3b3b;}'),
-        g.css.insertRule('#resetbttn{display:flex;align-items:center;justify-content:center;}'),
+        g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.msedn(_e,e=>g.km.reset()),s.prepend(_e),_e),
         // TODO add event listeners
         // Draw all keybind options for the mod
-        g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
+        g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_s.tabIndex=-1,_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
 
         // Add event listeners to test for opening keybinds menu and swapping of tabs
         //
         // Check if in both the correct tab and the correct input type (keyboard), and check if the elements aren't already present
         // Also add an event listener to the tab and input type switch while the menu is open
-        g.km.chkupdate=async _=>(await g.wait(10),(_o=g.bd[g.qs]('.settings-sidebar_options'))&&_o[g.ael]('mousedown',g.km.chkupdate),(_t=g.bd[g.qs]('.settings-sidebar_tabs'))&&_t[g.ael]('mousedown',g.km.chkupdate),
+        g.km.chkupdate=async _=>(await g.wait(10),(_o=g.bd[g.qs]('.settings-sidebar_options'))&&g.msedn(_o,g.km.chkupdate),(_t=g.bd[g.qs]('.settings-sidebar_tabs'))&&g.msedn(_t,g.km.chkupdate),
             g.dc[g.qs]('.settings-sidebar_tab.option-selected:first-child')&&g.dc[g.qs]('.settings-sidebar_option.option-selected:first-child')&&!g.dc[g.qs]('#resetbttn')?g.km.draw():0),
-        g.km.menu[g.ael]('mousedown',g.km.chkupdate),
-        g.km.menu[g.ael]('mouseover',g.km.chkupdate),
+        g.msedn(g.km.menu,g.km.chkupdate),
+        g.mseov(g.km.menu,g.km.chkupdate),
 
 
         //open and hide debug menus
@@ -117,8 +141,7 @@
         g.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
-        g.kydn(e=>e.code==g.keybind('ToggleUI','KeyU')&&!g.uitoggle?(g.uitoggle=!0,g.tvisall()):0),
-        g.kyup(e=>e.code==g.keybind('ToggleUI','KeyU')?g.uitoggle=!1:0),
+        g.kyprs(e=>e.code==g.keybind('ToggleUI','KeyU')?g.tvisall():0),
 
         // Display hidden ms counter
         g.fpscnt.children[1].style.display='block',
@@ -135,7 +158,7 @@
         await g.wait(1000),
 
         // ROADTIME
-        rt={sd:g.D(),ds:g.d(),hs:g.lsget('modrt_hs')||0,hsdist:g.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
+        rt={sd:g.D(),ds:g.dist(),hs:g.lsget('modrt_hs')||0,hsdist:g.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
 
         rt.time=v=>v?`${(v-=(_hh=g.fl(v/36e5))*36e5),_hh}:${(v-=(_m=g.fl(v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(v/1e3)).slice(-2)}`:'-',
 
@@ -160,15 +183,15 @@
             _b=_r[0].x-_r[1].x,
             _d=Math.abs(_a*_p[0]+_b*_p[1]-_a*_r[0].x-_b*_r[0].y)/Math.sqrt(_a*_a+_b*_b),
             // Calculate distance and time on road
-            _dist=rt.saveddist+Math.round((g.d()-rt.ds)*100)/100,
+            _dist=rt.saveddist+Math.round((g.dist()-rt.ds)*100)/100,
             _sc=g.D()-rt.sd+rt.savedtime,
             // Save the distance and time on pause, and keep dist+time frozen during pause
-            g.paused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.d(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
+            g.paused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.dist(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
             // parse time
             _s=rt.time(_sc),
             // write output
             rt.reset||_d>3.2||!rt.started
-                ?(rt.sd=g.D(),rt.ds=g.d(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
+                ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
                 :(rt.tdiv[g.it]=`Time on road: ${_s}`,rt.ddiv[g.it]=`Distance: ${_dist.toFixed(2)}km`,
                 _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_sc)):0,
                 _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.lsset('modrs_hsdist',_dist)):0)
@@ -192,8 +215,8 @@
         wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&wd.entry[g.ael](
             'mousedown',async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry))))
         )):0,
-        wd.menu[g.ael]('mouseover',wd.updatelistener),
-        wd.menu[g.ael]('mousedown',wd.updatelistener),
+        g.msedn(wd.menu,wd.updatelistener),
+        g.mseov(wd.menu,wd.updatelistener),
 
         // Set up UI wheel drive
         (wd.ui=g.div()).style=g.style+'top:0;right:80px',
