@@ -1,3 +1,5 @@
+//((?<=(.|\n))\/\/[^\n]*|\s*\n\s*)
+//(?!\n)$  -> \n
 (async _=>
     typeof __a=='undefined'?(
         // Setup global functions
@@ -28,6 +30,7 @@
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
         g.getmenu=m=>g.dc[g.qsa]('#menu-bar-right>.menu-item')[m],
+        // ids of all menus (part of the menu icon src)
         g.menunames=['kofi','feedback','vol','controls','config','circle'],
         g.getmenu=m=>(_m=Array.from(g.dc[g.qsa]('#menu-bar-right>.menu-item')).filter(x=>x.firstChild.src.includes(g.menunames[m]))).length?_m[0]:null,
         g.getstoption=s=>(_o=Array.from(g.dc[g.qsa]('.settings-input-list .settings-input-row')).filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
