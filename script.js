@@ -1,3 +1,5 @@
+//((?<=(.|\n))\/\/[^\n]*|\s*\n\s*)
+//(?!\n)$  -> \n
 (async _=>
     typeof __a=='undefined'?(
         // Setup global functions
@@ -28,8 +30,11 @@
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
         g.getmenu=m=>g.dc[g.qsa]('#menu-bar-right>.menu-item')[m],
-        g.getstoption=s=>g.dc[g.qs](`.settings-input-list :not(.mod-entry):nth-child(${s}) .settings-input-enum`),
-        g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_x=g.getstoption(s)),_x),
+        // ids of all menus (part of the menu icon src)
+        g.menunames=['kofi','feedback','vol','controls','config','circle'],
+        g.getmenu=m=>(_m=Array.from(g.dc[g.qsa]('#menu-bar-right>.menu-item')).filter(x=>x.firstChild.src.includes(g.menunames[m]))).length?_m[0]:null,
+        g.getstoption=s=>(_o=Array.from(g.dc[g.qsa]('.settings-input-list .settings-input-row')).filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
+        g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_o=g.getstoption(s)),_o),
         g.exitst=_=>(g.fakeclk(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
         // only works with dropdowns
         // get value of setting passed in m
@@ -131,7 +136,8 @@
 
         // ROADTIME
         rt={sd:g.D(),ds:g.d(),hs:g.lsget('modrt_hs')||0,hsdist:g.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
-        // rt={sd:g.D(),ds:g.d(),hs:0,hsdist:0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
+
+        rt.time=v=>v?`${(v-=(_hh=g.fl(v/36e5))*36e5),_hh}:${(v-=(_m=g.fl(v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(v/1e3)).slice(-2)}`:'-',
 
         // Set up UI roadtime
         (rt.ui=g.div()).style=g.style+'left:50%;top:0;width:300px',
@@ -139,8 +145,8 @@
         _ad=_=>(_x=g.div(),_x.style='padding:5px',rt.ui[g.ap](_x),_x),
         rt.tdiv=_ad(),
         rt.ddiv=_ad(),
-        (rt.hsdiv=_ad())[g.it]='Highscore time: -',
-        (rt.dhsdiv=_ad())[g.it]='Highscore distance: -',
+        (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.time(g.lsget('modrt_hs'))}`,
+        (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.time(g.lsget('modrt_hsdist'))}`,
         g.addui(rt.ui),
 
         // Start loop roadtime
@@ -159,12 +165,12 @@
             // Save the distance and time on pause, and keep dist+time frozen during pause
             g.paused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.d(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
             // parse time
-            _s=`${(_v=_sc,_v-=(_hh=g.fl(_v/36e5))*36e5),_hh}:${(_v-=(_m=g.fl(_v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(_v/1e3)).slice(-2)}`,
+            _s=rt.time(_sc),
             // write output
             rt.reset||_d>3.2||!rt.started
                 ?(rt.sd=g.D(),rt.ds=g.d(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
                 :(rt.tdiv[g.it]=`Time on road: ${_s}`,rt.ddiv[g.it]=`Distance: ${_dist.toFixed(2)}km`,
-                _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_s)):0,
+                _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_sc)):0,
                 _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.lsset('modrs_hsdist',_dist)):0)
         ),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
@@ -173,17 +179,17 @@
         g.tvis(g.km.b['Road Time Display'],rt.ui),
 
         // WHEEL DRIVE SWITCHER
-        wd={},
+        wd={wdst:'Drive Mode'},
 
         wd.parse=s=>s.includes('All')?0:s.includes('Front')?1:2,
-        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst(4,12))),g.exitst(),_s),
-        wd.switchstate=_=>(_s=g.getst(_x=g.openst(4,12)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
+        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst(4,wd.wdst))),g.exitst(),_s),
+        wd.switchstate=_=>(_s=g.getst(_x=g.openst(4,wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
         wd.disp=x=>!x?'AWD':x==1?'FWD':'RWD',
         wd.update=s=>wd.wddiv[g.it]=wd.disp(s),
 
         // add event listener when menu is opened
         wd.menu=g.getmenu(4),
-        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(12))&&wd.entry[g.ael](
+        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&wd.entry[g.ael](
             'mousedown',async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry))))
         )):0,
         wd.menu[g.ael]('mouseover',wd.updatelistener),
