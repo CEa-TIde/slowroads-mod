@@ -28,8 +28,10 @@
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
         g.getmenu=m=>g.dc[g.qsa]('#menu-bar-right>.menu-item')[m],
-        g.getstoption=s=>g.dc[g.qs](`.settings-input-list :not(.mod-entry):nth-child(${s}) .settings-input-enum`),
-        g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_x=g.getstoption(s)),_x),
+        g.menunames=['kofi','feedback','vol','controls','config','circle'],
+        g.getmenu=m=>(_m=Array.from(g.dc[g.qsa]('#menu-bar-right>.menu-item')).filter(x=>x.firstChild.src.includes(g.menunames[m]))).length?_m[0]:null,
+        g.getstoption=s=>(_o=Array.from(g.dc[g.qsa]('.settings-input-list .settings-input-row')).filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
+        g.openst=(m,s)=>(g.menulock(1),g.fakemseover(g.getmenu(m)),g.fakemseover(_o=g.getstoption(s)),_o),
         g.exitst=_=>(g.fakeclk(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
         // only works with dropdowns
         // get value of setting passed in m
@@ -142,7 +144,6 @@
         rt.ddiv=_ad(),
         (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.time(g.lsget('modrt_hs'))}`,
         (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.time(g.lsget('modrt_hsdist'))}`,
-        console.log(rt.ui),
         g.addui(rt.ui),
 
         // Start loop roadtime
@@ -175,17 +176,17 @@
         g.tvis(g.km.b['Road Time Display'],rt.ui),
 
         // WHEEL DRIVE SWITCHER
-        wd={},
+        wd={wdst:'Drive Mode'},
 
         wd.parse=s=>s.includes('All')?0:s.includes('Front')?1:2,
-        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst(4,12))),g.exitst(),_s),
-        wd.switchstate=_=>(_s=g.getst(_x=g.openst(4,12)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
+        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst(4,wd.wdst))),g.exitst(),_s),
+        wd.switchstate=_=>(_s=g.getst(_x=g.openst(4,wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
         wd.disp=x=>!x?'AWD':x==1?'FWD':'RWD',
         wd.update=s=>wd.wddiv[g.it]=wd.disp(s),
 
         // add event listener when menu is opened
         wd.menu=g.getmenu(4),
-        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(12))&&wd.entry[g.ael](
+        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&wd.entry[g.ael](
             'mousedown',async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry))))
         )):0,
         wd.menu[g.ael]('mouseover',wd.updatelistener),
