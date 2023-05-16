@@ -20,6 +20,7 @@
         g.msedn=(el,e)=>el[g.ael]('mousedown',e),
         g.mseup=(el,e)=>el[g.ael]('mouseup',e),
         g.mseov=(el,e)=>el[g.ael]('mouseover',e),
+        g.mselv=(el,e)=>el[g.ael]('mouseleave',e),
         g.mseclk=(el,e)=>(down=!1,g.msedn(el,e1=>!down?(down=!0,e(e1)):0),g.mseup(el,_=>down=!1)),
 
         g.tvis=(k,el)=>g.kydn(e=>e.code===k?el.style.display=el.style.display=='none'?'block':'none':0),
@@ -58,36 +59,61 @@
 
         g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
 
+        //-------------------------------------------------------------------
         // functions responsible for managing ui in the menus
-        g.ui={},
+        g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option'},
+
+        g.ui.ready=s=>s.tabIndex=-1,
+        g.ui.deselect=el=>(_x=el[g.cn]).includes('input-type_dropdown')||_x.includes('input-type_keybind')?('close the dropdown or stop keybind'):0,
+        g.ui.focus=(s,el)=>(s.focus(),g.ui.f=el),
+        g.ui.unfocus=s=>(s.blur(),g.ui.f=null),
 
         // change toggle to clicked state, and call callback function with either 0 or 1 given the new state (not checked if state changed)
-        g.ui.toggle=(t,el,e)=>(t.children[+!el].classList.remove('bool_selected'),t[el].classList.add('bool_selected'),e(el)),
-        // toggle collapse section
-        g.ui.collapse=(s,sc,cr)=>(_t=cr[g.it]=='-',_i=(_c=[...s.children]).indexOf(sc),_nxt=s[g.qs](`.collapsible:nth-child(n+${_i+2})`),_c.slice(_i+1,_nxt?_c.indexOf(_nxt):1e5).forEach(x=>x.style.display=_t?'none':'flex'),cr[g.it]=_t?'+':'-'),
+        g.ui.toggle=(t,o,e)=>(t.children[+!o].classList.remove('bool_selected'),t[o].classList.add('bool_selected'),e(o)),
+        // toggle collapse section (elements in section are stored in _els variable of element)
+        // g.ui.collapse=(s,sc,cr)=>(_t=cr[g.it]=='-',_i=(_c=[...s.children]).indexOf(sc),_nxt=s[g.qs](`.collapsible:nth-child(n+${_i+2})`),_c.slice(_i+1,_nxt?_c.indexOf(_nxt):1e5).forEach(x=>x.style.display=_t?'none':'flex'),cr[g.it]=_t?'+':'-'),
+        g.ui.collapse=(sc,crs)=>(_t=crs[g.it]=='-',sc._els.forEach(x=>x.style.display=_t?'none':'flex'),crs[g.it]=_t?'+':'-'),
+
+        g.ui.ddopen=null,
+        // Open or close dropdown
+        g.ui.opendd=o=>o?(o.style.display='flex',g.ui.ddopen=o):0,
+        g.ui.closedd=o=>o?(o.style.display='none',g.ui.ddopen=null):0,
+        // Select option dropdown
+        g.ui.ddselect=(d,o,e)=>o[g.cn]==g.ui.eo?(_o=o[g.it],d[g.it]=_o,e(_o)):0,
 
         // creation of ui components
-        g.ui.makebttn=(s,l,ed,eu=_=>0)=>((_el=g.div())[g.cn]=g.se,_el.id='resetbttn',_el[g.it]=l,g.msedn(_el,ed),g.mseup(_el,eu),s.prepend(_el),_el),
-        // g.ui.makekeybind=(s,l,d)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
-        //     g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
-        g.ui.maketoggle=(s,l,o1,o2,d,e)=>((_el=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=l,(_t=g.div())[g.cn]='settings-input-bool',
+        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+tlt?' help':'',_l.title=tlt,_l[g.it]=l),
+        
+        g.ui.makebttn=(s,l,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_bttn'+tlt?' help':'',_el.title=tlt,_el[g.it]=l,g.mseclk(_el,e),s.prepend(_el),_el),
+
+        g.ui.makekeybind=(s,l,d,tlt='')=>((_e=g.div())[g.cn]=g.ui.se,_l=g.ui.makelbl(l,tlt),(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
+            g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
+        
+        g.ui.maketoggle=(s,l,o1,o2,d,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_toggle',_l=g.ui.makelbl(l,tlt),(_t=g.div())[g.cn]='settings-input-bool',
             (_o1=g.div())[g.cn]=(_o2=g.div())[g.cn]='settings-input-bool_option',_o1[g.it]=o1,_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected'),
             g.msedn(_o1,_=>g.ui.toggle(_t,0,e)),g.msedn(_o2,_=>g.ui.toggle(_t,1,e)),_t[g.ap](_o1,_o2),_el[g.ap](_l,_t),s.prepend(_el),_el),
-        g.ui.makedropdown=(s,l,o,e)=>0,
-        g.ui.makesection=(s,l)=>((_el=g.div())[g.cn]=g.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=l,(_c=g.div())[g.cn]='collapsible-cross',
-            g.msedn(),_c[g.it]='-',_el[g.ap](_t,_c),s.prepend(_el),_el),
-        g.ui.makeslider=(s,l,mn,mx,d,e)=>0,
+        
+        g.ui.makedropdown=(s,l,o,d,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_dropdown',_l=g.ui.makelbl(l,tlt),(_e=g.div())[g.cn]='settings-input-enum',_e[g.it]=o[d],
+            (_a=g.div())[g.cn]='settings-input-enum_arrow',_a[g.it]='▾',_e[g.ap](_a),(_o=g.div())[g.cn]='settings-input-enum_options',_o.style.display='none',g.msedn(_o,e1=>g.ui.ddselect(_e,e1.target,e)),
+            _op=o.forEach(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x)),_o[g.ap](..._op)),g.mseov(_e,_=>g.ui.opendd(_o)),g.mselv(_e,_=>g.ui.closedd(_o),s.prepend(_el),_el),
+
+        g.ui.makesection=(s,l,els)=>((_el=g.div())[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=l,(_c=g.div())[g.cn]='collapsible-cross',
+            g.mseclk(_el,_=>g.ui.collapse(_el,_c)),_c[g.it]='-',_el._els=els,_el[g.ap](_t,_c),s.prepend(_el),_el),
+        
+        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>0,
 
         // add styling ui
-        g.css.insertRule('#resetbttn:hover{background:#3b3b3b;}'),
-        g.css.insertRule('#resetbttn{display:flex;align-items:center;justify-content:center;}'),
+        g.css.insertRule('.mod-entry.input-type_bttn:hover{background:#3b3b3b;}'),
+        g.css.insertRule('.mod-entry.input-type_bttn{display:flex;align-items:center;justify-content:center;}'),
+
+        //---------------------------------------------------------------------
 
         // Set up settings UI for mod
         // g.st={opt:[]},
         // g.st.menu=g.getmenu(3),
         // g.st.add=(n,o,d)=>0,
-        // g.st.makesection=(s,n)=>((_d=g.div())[g.cn]=g.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=n,(_c=g.div())[g.cn]='collapsible-cross',_c[g.it]='-',_d[g.ap](_t),_d[g.ap](_c),s.prepend(_d),_d),
-        // g.st.makeentry=(s,n,o,d)=>((_d=g.div())[g.cn]=g.se,s.prepend(_d),_d),
+        // g.st.makesection=(s,n)=>((_d=g.div())[g.cn]=g.ui.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=n,(_c=g.div())[g.cn]='collapsible-cross',_c[g.it]='-',_d[g.ap](_t),_d[g.ap](_c),s.prepend(_d),_d),
+        // g.st.makeentry=(s,n,o,d)=>((_d=g.div())[g.cn]=g.ui.se,s.prepend(_d),_d),
         // g.st.draw=_=>(_s=g.dc[g.qs]('.settings-input-list')),
         
         // Set up keybinds settings for mod
@@ -112,12 +138,12 @@
         // Add listener for clear button
         g.km.aelclear=(c,l,f)=>g.msedn(c,e=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],''))),
         // Create entry with a name and value, and prepend to settings
-        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
+        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.ui.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
             g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
         // Reset all keybinds to default values and delete the local storage entry
         g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.removeItem(g.km.lsname)),
         // Create reset button, and prepend to settings
-        g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.msedn(_e,e=>g.km.reset()),s.prepend(_e),_e),
+        g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.ui.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.msedn(_e,e=>g.km.reset()),s.prepend(_e),_e),
         // TODO add event listeners
         // Draw all keybind options for the mod
         g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_s.tabIndex=-1,_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
@@ -157,6 +183,7 @@
         // wait a hot second to let engine catch up (otherwise the F3 menu isn't open yet)
         await g.wait(1000),
 
+        //------------------------------------------------------------------------------------
         // ROADTIME
         rt={sd:g.D(),ds:g.dist(),hs:g.lsget('modrt_hs')||0,hsdist:g.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
 
@@ -201,6 +228,7 @@
         // toggle visibility of ui with '1' key
         g.tvis(g.km.b['Road Time Display'],rt.ui),
 
+        //---------------------------------------------------------------------------------
         // WHEEL DRIVE SWITCHER
         wd={wdst:'Drive Mode'},
 
@@ -231,6 +259,7 @@
 
         g.tvis(g.km.b['Drive Switch Display'],wd.ui),
 
+        //----------------------------------------------------------------------------------
         // BOOST STATE DISPLAY
         bs={state:!1,kydn:!1,tmode:!1},
         (bs.ui=g.div()).style=g.style+'top:0;right:115px;padding:5px',
