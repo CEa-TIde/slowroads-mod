@@ -3,19 +3,37 @@
     typeof __a=='undefined'?(
         // Setup global functions
         __a=0,
-        g={it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',se:'settings-input-row mod-entry',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
-        g.l=(g.dc=document)[g.qs]("#upcoming-container polyline"),
+        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
+        g.l=g.dc[g.qs]("#upcoming-container polyline"),
         //function that returns coords of player: [x, y]
         g.p=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
         //function that returns the distance travelled
         g.dist=_=>parseInt(g.dc[g.qs]('#ui-debug-node')[g.it])/100,
         g.div=_=>g.dc.createElement("div"),
-        g.addui=e=>(e.className='mod-ui',g.bd[g.ap](e)),
+        g.addui=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
         g.bd=g.dc.body,
 
-        g.aelb=(t,e)=>g.bd[g.ael](t,e),
+        //-----------------------------------------------------------------
+        // input handler
+        g.io={pressing:[],clicking:!1,ev:{keydown:[],keyup:[],keypress:[],mousedown:[],mouseup:[],mouseover:[],mouseleave:[],mouseclick:[]}},
+        g.io.ael=(t,e,el)=>(el?el:g.bd)[g.ael](t,e),
+        g.io.add=(t,e)=>g.io.ev[t].push(e),
+        // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
+        g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t].forEach(x=>x(e))),
+        // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
+        g.io.chkpress=(t,e)=>(_c=e.code,_k=pressing.includes(_c),t=='keydown'&&!_k?(pressing.push(_c),g.io.fireev('keypress',e)):t=='keyup'&&_k?pressing.remove(_c):0),
+        // Check for left-mouseclick event (fired when mouse button is pressed down for the first time, until it is lifted up again)
+        g.io.chkclk=(t,e)=>(t=='mousedown'&&!g.io.clicking?(g.io.clicking=!0,g.io.fireev('mouseclick',e)):t=='mouseup'?(g.io.clicking=!1):0),
+        // Handler for all event types; checks type and calls the respective attached callback methods
+        g.io.handler=e=>(_t=e.type,g.io.fireev(_t,e),g.io.chkpress(_t,e),g.io.chkclk(_t,e)),
+
+
+        //-----------------------------------------------------------------
+
+        g.aelb=(t,e,el)=>(el?el:g.bd)[g.ael](t,e),
         g.kydn=e=>g.aelb('keydown',e),
         g.kyup=e=>g.aelb('keyup',e),
+        // TODO FIX (multiple event listeners use same down var) -> SOLUTION: only have one event listener that triggers all the others (do for all other evlisteners too)
         g.kyprs=e=>(down=!1,g.kydn(e1=>!down?(down=!0,e(e1)):0),g.kyup(_=>down=!1)),
         g.msedn=(el,e)=>el[g.ael]('mousedown',e),
         g.mseup=(el,e)=>el[g.ael]('mouseup',e),
@@ -95,7 +113,7 @@
         
         g.ui.makedropdown=(s,l,o,d,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_dropdown',_l=g.ui.makelbl(l,tlt),(_e=g.div())[g.cn]='settings-input-enum',_e[g.it]=o[d],
             (_a=g.div())[g.cn]='settings-input-enum_arrow',_a[g.it]='▾',_e[g.ap](_a),(_o=g.div())[g.cn]='settings-input-enum_options',_o.style.display='none',g.msedn(_o,e1=>g.ui.ddselect(_e,e1.target,e)),
-            _op=o.forEach(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x)),_o[g.ap](..._op)),g.mseov(_e,_=>g.ui.opendd(_o)),g.mselv(_e,_=>g.ui.closedd(_o),s.prepend(_el),_el),
+            _op=o.forEach(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x)),_o[g.ap](..._op),g.mseov(_e,_=>g.ui.opendd(_o)),g.mselv(_e,_=>g.ui.closedd(_o)),s.prepend(_el),_el),
 
         g.ui.makesection=(s,l,els)=>((_el=g.div())[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=l,(_c=g.div())[g.cn]='collapsible-cross',
             g.mseclk(_el,_=>g.ui.collapse(_el,_c)),_c[g.it]='-',_el._els=els,_el[g.ap](_t,_c),s.prepend(_el),_el),
