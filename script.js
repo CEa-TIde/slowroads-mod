@@ -5,6 +5,7 @@
         __a=0,
         g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
         g.l=g.dc[g.qs]("#upcoming-container polyline"),
+        g.game=g.dc[g.qs]('#game-main'),
         //function that returns coords of player: [x, y]
         g.p=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
         //function that returns the distance travelled
@@ -12,20 +13,40 @@
         g.div=_=>g.dc.createElement("div"),
         g.addui=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
         g.bd=g.dc.body,
+        Array.prototype.remove=function(el){_x=this.indexOf(el);_x!=-1?this.splice(_x,1):0;return this},
 
         //-----------------------------------------------------------------
-        // input handler
-        g.io={pressing:[],clicking:!1,ev:{keydown:[],keyup:[],keypress:[],mousedown:[],mouseup:[],mouseover:[],mouseleave:[],mouseclick:[]}},
-        g.io.ael=(t,e,el)=>(el?el:g.bd)[g.ael](t,e),
-        g.io.add=(t,e)=>g.io.ev[t].push(e),
+        // io handler
+        // All events are caught in #game-main, unless keybind is recorded, in which case the keypresses are recorded in the settings and bubbling is prevented
+        g.io={keys:[],ev:{keydown:[],keyup:[],keypress:[],mousedown:[],mouseup:[],mouseover:[],mouseleave:[],click:[]},tvisels:[]},
+        // Add an event listener to the list
+        g.io.add=(t,e,tgt=null)=>g.io.ev[t].push({callback:e,target:tgt}),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
-        g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t].forEach(x=>x(e))),
+        // If target is set, the target of the event must be equal to the registered target.
+        g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t].filter(x=>x.target==null||x.target==e.target).forEach(x=>(x.callback(e)))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
-        g.io.chkpress=(t,e)=>(_c=e.code,_k=pressing.includes(_c),t=='keydown'&&!_k?(pressing.push(_c),g.io.fireev('keypress',e)):t=='keyup'&&_k?pressing.remove(_c):0),
-        // Check for left-mouseclick event (fired when mouse button is pressed down for the first time, until it is lifted up again)
-        g.io.chkclk=(t,e)=>(t=='mousedown'&&!g.io.clicking?(g.io.clicking=!0,g.io.fireev('mouseclick',e)):t=='mouseup'?(g.io.clicking=!1):0),
+        g.io.chkpress=(t,e)=>(_c=e.code,_k=g.io.keys.includes(_c),t=='keydown'&&!_k?(g.io.keys.push(_c),g.io.fireev('keypress',e)):t=='keyup'&&_k?g.io.keys.remove(_c):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
-        g.io.handler=e=>(_t=e.type,g.io.fireev(_t,e),g.io.chkpress(_t,e),g.io.chkclk(_t,e)),
+        g.io.handler=e=>(_t=e.type,g.io.fireev(_t,e),g.io.chkpress(_t,e)),
+        g.io.handlerkeybind=e=>0,
+        g.io.ael=(t,e,el)=>(el?el:g.game)[g.ael](t,e||g.io.handler),
+
+        // Register all event listeners to handler
+        ['mousedown','mouseup','mouseover','mouseleave','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
+
+        g.io.kydn=(e,el)=>g.io.add('keydown',e,el),
+        g.io.kyup=(e,el)=>g.io.add('keyup',e,el),
+        g.io.kyprs=(e,el)=>g.io.add('keypress',e,el), // Custom event
+        
+        g.io.msedn=(e,el)=>g.io.add('mousedown',e,el),
+        g.io.mseup=(e,el)=>g.io.add('mouseup',e,el),
+        g.io.mseov=(e,el)=>g.io.add('mouseover',e,el),
+        g.io.mselv=(e,el)=>g.io.add('mouseleave',e,el),
+        g.io.mseclk=(e,el)=>g.io.add('click',e,el),
+
+        g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?x.el.style.display=x.el.style.display=='none'?'block':'none':0)),
+        g.io.addtvis=(k,el)=>g.io.tvisels.push({k:k,el:el}),
+
 
 
         //-----------------------------------------------------------------
@@ -41,7 +62,7 @@
         g.mselv=(el,e)=>el[g.ael]('mouseleave',e),
         g.mseclk=(el,e)=>(down=!1,g.msedn(el,e1=>!down?(down=!0,e(e1)):0),g.mseup(el,_=>down=!1)),
 
-        g.tvis=(k,el)=>g.kydn(e=>e.code===k?el.style.display=el.style.display=='none'?'block':'none':0),
+        g.tvis=(k,el)=>g.io.kydn(e=>e.code===k?el.style.display=el.style.display=='none'?'block':'none':0),
         g.tvisall=(uivis=!0,_=>(uivis=!uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>x.style.opacity=uivis?1:0))),
         g.paused=_=>g.dc[g.qs]('#game-paused').style.display=='block',
         g.keyev=(t,ko={bubbles:!0})=>new KeyboardEvent(t,ko),
@@ -177,12 +198,10 @@
 
 
         //open and hide debug menus
-        await g.fakekey({"code":g.keybind('ToggleDebug','F3')},g.evroot),
-        g.uidebug.style.opacity=0,
-        g.fpscnt.style.opacity=0,
-        g.f3open=!1,
+        g.uidebug.style.display=='none'?(await g.fakekey({"code":g.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.style.opacity=0,g.fpscnt.style.opacity=0,g.f3open=!1):g.f3open=!0,
+        
         // Add proxy F3 menu key (F2)
-        g.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
+        g.io.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
         g.kyprs(e=>e.code==g.keybind('ToggleUI','KeyU')?g.tvisall():0),
@@ -242,9 +261,9 @@
                 _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.lsset('modrs_hsdist',_dist)):0)
         ),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
-        g.kydn(e=>(rt.reset=e.code===g.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.keybind('Forward','KeyW'),g.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
+        g.io.kydn(e=>(rt.reset=e.code===g.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.keybind('Forward','KeyW'),g.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
         // toggle visibility of ui with '1' key
-        g.tvis(g.km.b['Road Time Display'],rt.ui),
+        g.io.addtvis(g.km.b['Road Time Display'],rt.ui),
 
         //---------------------------------------------------------------------------------
         // WHEEL DRIVE SWITCHER
@@ -273,9 +292,9 @@
         g.addui(wd.ui),
 
         // toggle between awd and fwd
-        g.kydn(e=>e.code==g.km.b['Switch Drive']?wd.update(wd.switchstate()):0),
+        g.io.kydn(e=>e.code==g.km.b['Switch Drive']?wd.update(wd.switchstate()):0),
 
-        g.tvis(g.km.b['Drive Switch Display'],wd.ui),
+        g.io.addtvis(g.km.b['Drive Switch Display'],wd.ui),
 
         //----------------------------------------------------------------------------------
         // BOOST STATE DISPLAY
@@ -284,11 +303,11 @@
         g.addui(bs.ui),
         bs.ui[g.it]='BOOST OFF',
 
-        g.kydn(e=>((_m=g.boosttoggled())!=bs.tmode?(bs.state=!1,bs.tmode=_m):0,e.code==g.keybind('Boost','ShiftLeft')?_m?!bs.kydn?bs.ui[g.it]=(bs.kydn=!0,bs.state=!bs.state)?'BOOST ON':'BOOST OFF':0:bs.ui[g.it]='BOOST ON':0)),
-        g.kyup(e=>e.code==g.keybind('Boost','ShiftLeft')?g.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
-        // g.kydn(e=>e.code===g.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
+        g.io.kydn(e=>((_m=g.boosttoggled())!=bs.tmode?(bs.state=!1,bs.tmode=_m):0,e.code==g.keybind('Boost','ShiftLeft')?_m?!bs.kydn?bs.ui[g.it]=(bs.kydn=!0,bs.state=!bs.state)?'BOOST ON':'BOOST OFF':0:bs.ui[g.it]='BOOST ON':0)),
+        g.io.kyup(e=>e.code==g.keybind('Boost','ShiftLeft')?g.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
+        // g.io.kydn(e=>e.code===g.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
 
-        g.tvis(g.km.b['Boost Display'],bs.ui),
+        g.io.addtvis(g.km.b['Boost Display'],bs.ui),
 
         await g.wait(100),
         g.err('SCRIPT READY',2e3)
