@@ -9,14 +9,15 @@
         g.line=g.dc[g.qs]("#upcoming-container polyline"),
         g.evroot=g.dc[g.qs]('#game-main'),
         g.uidebug=g.dc[g.qs]('#ui-debug'),
+        g.fpscnt=[...g.dc[g.qsa]('body>div')].filter(x=>!x.id&&x.style['z-index']==1e4)[0],
         // Check if the debug menu is open (and thus updating)
         g.hasdebugopen=_=>(_x=g.uidebug.style.display)&&_x!='none',
-        g.fpscnt=[...g.dc[g.qsa]('body>div')].filter(x=>!x.id&&x.style['z-index']==1e4)[0],
         //function that returns coords of player: [x, y]
-        g.p=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
+        g.pos=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
         //function that returns the distance travelled
         g.dist=_=>parseInt(g.dc[g.qs]('#ui-debug-node')[g.it])/100,
         g.div=_=>g.dc.createElement("div"),
+        // Add 'remove by value' function to Array
         Array.prototype.remove=function(el){_x=this.indexOf(el);_x!=-1?this.splice(_x,1):0;return this},
         g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
 
@@ -48,6 +49,17 @@
         g.io.mselv=(e,el)=>g.io.add('mouseleave',e,el),
         g.io.mseclk=(e,el)=>g.io.add('click',e,el),
 
+        // Default log function. Should be used for debug output.
+        g.io.log=console.log,
+        // List of attached hooks. Format: [{cb: <callback function>, enabled: <bool>},...]
+        g.io.loghooks=[],
+        // Attach hook. Passed value should be stored first so that the `enabled` flag can be manipulated.
+        g.io.addloghook=x=>typeof x.cb==='function'?g.loghooks.push(x):g.io.log('Callback is not set. Format: {cb: <callback function>, enabled: <bool>}'),
+        // Call all attached hooks with the passed arguments.
+        g.io.loghook=v=>g.loghooks.forEach(x=>x.enabled?x.cb(v):0),
+        // Overwrite console.log function with hook so that the output can be read. Argument array is passed to the hooks.
+        console.log=function(...args){g.io.log(...args);g.loghooked?g.loghook(args):0},
+
         // Toggle ui
         g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?x.el.style.display=x.el.style.display=='none'?'block':'none':0)),
         g.io.addtvis=(k,el)=>g.io.tvisels.push({k:k,el:el}),
@@ -56,10 +68,10 @@
 
         // Handler for recording keybinds
         // Is attached to the settings menu and stops bubbling to prevent keystrokes from affecting the game when remapping input.
-        g.io.handlerkeybind=e=>(e.stopPropagation()),
+        g.io.handlerkeybind=cb=>(e=>e.stopPropagation(),cb(e.code)),
         
-        g.io.startedit=_=>0,
-        g.io.stopedit=_=>0,
+        g.io.startkbedit=_=>0,
+        g.io.stopkbedit=_=>0,
 
         //---------------------------------------------------------------------
 
@@ -182,7 +194,7 @@
         // Start editing the selected field; if the field was already being edited, stop editing instead. If another field is already being edited, stop editing that first.
         g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
         g.km.aelbeginedit=(s,l,f)=>g.msedn(f,e=>g.km.beginedit(s,l,f)),
-        g.km.edit=e=>g.km.ed[1]?(console.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
+        g.km.edit=e=>g.km.ed[1]?(g.io.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
         g.km.aeledit=f=>f[g.ael]('keydown',g.km.edit),
         // Add listener for clear button
         g.km.aelclear=(c,l,f)=>g.msedn(c,e=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],''))),
@@ -255,7 +267,7 @@
             !g.hasdebugopen()?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`)
             :(
                 // calculate distance to road line
-                _p=g.p(),
+                _p=g.pos(),
                 _r=g.line.points,
                 _a=-_r[0].y+_r[1].y,
                 _b=_r[0].x-_r[1].x,
