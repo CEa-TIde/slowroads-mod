@@ -4,16 +4,21 @@
         // Setup global functions
         __a=0,
         g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
-        g.l=g.dc[g.qs]("#upcoming-container polyline"),
-        g.game=g.dc[g.qs]('#game-main'),
+        g.bd=g.dc.body,
+
+        g.line=g.dc[g.qs]("#upcoming-container polyline"),
+        g.evroot=g.dc[g.qs]('#game-main'),
+        g.uidebug=g.dc[g.qs]('#ui-debug'),
+        // Check if the debug menu is open (and thus updating)
+        g.hasdebugopen=_=>(_x=g.uidebug.style.display)&&_x!='none',
+        g.fpscnt=[...g.dc[g.qsa]('body>div')].filter(x=>!x.id&&x.style['z-index']==1e4)[0],
         //function that returns coords of player: [x, y]
         g.p=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
         //function that returns the distance travelled
         g.dist=_=>parseInt(g.dc[g.qs]('#ui-debug-node')[g.it])/100,
         g.div=_=>g.dc.createElement("div"),
-        g.addui=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
-        g.bd=g.dc.body,
         Array.prototype.remove=function(el){_x=this.indexOf(el);_x!=-1?this.splice(_x,1):0;return this},
+        g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
 
         //-----------------------------------------------------------------
         // io handler
@@ -28,15 +33,14 @@
         g.io.chkpress=(t,e)=>(_c=e.code,_k=g.io.keys.includes(_c),t=='keydown'&&!_k?(g.io.keys.push(_c),g.io.fireev('keypress',e)):t=='keyup'&&_k?g.io.keys.remove(_c):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
         g.io.handler=e=>(_t=e.type,g.io.fireev(_t,e),g.io.chkpress(_t,e)),
-        g.io.handlerkeybind=e=>0,
-        g.io.ael=(t,e,el)=>(el?el:g.game)[g.ael](t,e||g.io.handler),
+        g.io.ael=(t,e,el)=>(el?el:g.evroot)[g.ael](t,e||g.io.handler),
 
-        // Register all event listeners to handler
+        // Register all event listeners to default handler
         ['mousedown','mouseup','mouseover','mouseleave','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
 
         g.io.kydn=(e,el)=>g.io.add('keydown',e,el),
         g.io.kyup=(e,el)=>g.io.add('keyup',e,el),
-        g.io.kyprs=(e,el)=>g.io.add('keypress',e,el), // Custom event
+        g.io.kyprs=(e,el)=>g.io.add('keypress',e,el), // Custom event different from the built-in deprecated keypress event
         
         g.io.msedn=(e,el)=>g.io.add('mousedown',e,el),
         g.io.mseup=(e,el)=>g.io.add('mouseup',e,el),
@@ -44,12 +48,20 @@
         g.io.mselv=(e,el)=>g.io.add('mouseleave',e,el),
         g.io.mseclk=(e,el)=>g.io.add('click',e,el),
 
+        // Toggle ui
         g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?x.el.style.display=x.el.style.display=='none'?'block':'none':0)),
         g.io.addtvis=(k,el)=>g.io.tvisels.push({k:k,el:el}),
 
+        // Remapping of keybinds
 
+        // Handler for recording keybinds
+        // Is attached to the settings menu and stops bubbling to prevent keystrokes from affecting the game when remapping input.
+        g.io.handlerkeybind=e=>(e.stopPropagation()),
+        
+        g.io.startedit=_=>0,
+        g.io.stopedit=_=>0,
 
-        //-----------------------------------------------------------------
+        //---------------------------------------------------------------------
 
         g.aelb=(t,e,el)=>(el?el:g.bd)[g.ael](t,e),
         g.kydn=e=>g.aelb('keydown',e),
@@ -88,17 +100,13 @@
 
         g.lsget=k=>JSON.parse(g.ls.getItem(k)),
         g.lsset=(k,v)=>g.ls.setItem(k,JSON.stringify(v)),
-        g.evroot=g.dc[g.qs]('#game-main'),
-        g.uidebug=g.dc[g.qs]('#ui-debug'),
-        g.fpscnt=[...g.dc[g.qsa]('body>div')].filter(x=>!x.id&&x.style['z-index']==1e4)[0],
-
         g.lsdflt=(n,k,d)=>(g.lsget(n)||{})[k]||d,
         g.keybind=(k,d)=>g.lsdflt('controls_keys',k,d),
         g.boosttoggled=_=>g.lsdflt('controls_keys_settings','toggleBoost',!1),
 
-        g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
 
-        //-------------------------------------------------------------------
+
+        //-----------------------------------------------------------------
         // functions responsible for managing ui in the menus
         g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option'},
 
@@ -106,6 +114,8 @@
         g.ui.deselect=el=>(_x=el[g.cn]).includes('input-type_dropdown')||_x.includes('input-type_keybind')?('close the dropdown or stop keybind'):0,
         g.ui.focus=(s,el)=>(s.focus(),g.ui.f=el),
         g.ui.unfocus=s=>(s.blur(),g.ui.f=null),
+
+        g.ui.add=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
 
         // change toggle to clicked state, and call callback function with either 0 or 1 given the new state (not checked if state changed)
         g.ui.toggle=(t,o,e)=>(t.children[+!o].classList.remove('bool_selected'),t[o].classList.add('bool_selected'),e(o)),
@@ -145,7 +155,7 @@
         g.css.insertRule('.mod-entry.input-type_bttn:hover{background:#3b3b3b;}'),
         g.css.insertRule('.mod-entry.input-type_bttn{display:flex;align-items:center;justify-content:center;}'),
 
-        //---------------------------------------------------------------------
+        //-------------------------------------------------------------------
 
         // Set up settings UI for mod
         // g.st={opt:[]},
@@ -198,21 +208,24 @@
 
 
         //open and hide debug menus
-        g.uidebug.style.display=='none'?(await g.fakekey({"code":g.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.style.opacity=0,g.fpscnt.style.opacity=0,g.f3open=!1):g.f3open=!0,
+        g.hasdebugopen()?g.f3open=!0:(await g.fakekey({"code":g.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.style.opacity=0,g.fpscnt.style.opacity=0,g.f3open=!1),
         
         // Add proxy F3 menu key (F2)
         g.io.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
-        g.kyprs(e=>e.code==g.keybind('ToggleUI','KeyU')?g.tvisall():0),
+        g.io.kyprs(e=>e.code==g.keybind('ToggleUI','KeyU')?g.tvisall():0),
 
         // Display hidden ms counter
         g.fpscnt.children[1].style.display='block',
 
+        // Prevent text selection on debug menu
+        g.css.insertRule('#ui-debug{-webkit-user-select:none;-ms-user-select:none;user-select:none;}'),
+
         // Add ui for error messages
         g.style='display:none;position:absolute;z-index:999;backdrop-filter:blur(10px);background:#66666666;color:white;',
         (g.errdiv=g.div()).style=g.style+'left:0;top:50%;max-width:300px;padding:5px',
-        g.addui(g.errdiv),
+        g.ui.add(g.errdiv),
         g.errtocode=0,
         // Function that displays an error for a certain time  (or until another error overrides it)
         g.err=(e,t=1500)=>(clearTimeout(g.errtocode),g.errdiv[g.it]=e,g.errdiv.style.display='block',g.errtocode=setTimeout(_=>g.errdiv.style.display='none',t)),
@@ -234,32 +247,33 @@
         rt.ddiv=_ad(),
         (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.time(g.lsget('modrt_hs'))}`,
         (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.time(g.lsget('modrt_hsdist'))}`,
-        g.addui(rt.ui),
+        g.ui.add(rt.ui),
 
         // Start loop roadtime
         setInterval(_=>(
             // check if debug menu is open
-            g.uidebug.style.display=='none'?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`):0,
-            // calculate distance to road line
-            _p=g.p(),
-            _r=g.l.points,
-            _a=-_r[0].y+_r[1].y,
-            _b=_r[0].x-_r[1].x,
-            _d=Math.abs(_a*_p[0]+_b*_p[1]-_a*_r[0].x-_b*_r[0].y)/Math.sqrt(_a*_a+_b*_b),
-            // Calculate distance and time on road
-            _dist=rt.saveddist+Math.round((g.dist()-rt.ds)*100)/100,
-            _sc=g.D()-rt.sd+rt.savedtime,
-            // Save the distance and time on pause, and keep dist+time frozen during pause
-            g.paused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.dist(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
-            // parse time
-            _s=rt.time(_sc),
-            // write output
-            rt.reset||_d>3.2||!rt.started
-                ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
-                :(rt.tdiv[g.it]=`Time on road: ${_s}`,rt.ddiv[g.it]=`Distance: ${_dist.toFixed(2)}km`,
-                _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_sc)):0,
-                _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.lsset('modrs_hsdist',_dist)):0)
-        ),16), //16 = 1000/60fps
+            !g.hasdebugopen()?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`)
+            :(
+                // calculate distance to road line
+                _p=g.p(),
+                _r=g.line.points,
+                _a=-_r[0].y+_r[1].y,
+                _b=_r[0].x-_r[1].x,
+                _d=Math.abs(_a*_p[0]+_b*_p[1]-_a*_r[0].x-_b*_r[0].y)/Math.sqrt(_a*_a+_b*_b),
+                // Calculate distance and time on road
+                _dist=rt.saveddist+Math.round((g.dist()-rt.ds)*100)/100,
+                _sc=g.D()-rt.sd+rt.savedtime,
+                // Save the distance and time on pause, and keep dist+time frozen during pause
+                g.paused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.dist(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
+                // parse time
+                _s=rt.time(_sc),
+                // write output
+                rt.reset||_d>3.2||!rt.started
+                    ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
+                    :(rt.tdiv[g.it]=`Time on road: ${_s}`,rt.ddiv[g.it]=`Distance: ${_dist.toFixed(2)}km`,
+                    _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.lsset('modrt_hs',_sc)):0,
+                    _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.lsset('modrs_hsdist',_dist)):0)
+        )),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
         g.io.kydn(e=>(rt.reset=e.code===g.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.keybind('Forward','KeyW'),g.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
         // toggle visibility of ui with '1' key
@@ -289,7 +303,7 @@
         wd.wddiv[g.it]=wd.disp(wd.getstate()),
         wd.ui[g.ap](wd.wddiv),
         g.bd[g.ap](wd.ui),
-        g.addui(wd.ui),
+        g.ui.add(wd.ui),
 
         // toggle between awd and fwd
         g.io.kydn(e=>e.code==g.km.b['Switch Drive']?wd.update(wd.switchstate()):0),
@@ -300,7 +314,7 @@
         // BOOST STATE DISPLAY
         bs={state:!1,kydn:!1,tmode:!1},
         (bs.ui=g.div()).style=g.style+'top:0;right:115px;padding:5px',
-        g.addui(bs.ui),
+        g.ui.add(bs.ui),
         bs.ui[g.it]='BOOST OFF',
 
         g.io.kydn(e=>((_m=g.boosttoggled())!=bs.tmode?(bs.state=!1,bs.tmode=_m):0,e.code==g.keybind('Boost','ShiftLeft')?_m?!bs.kydn?bs.ui[g.it]=(bs.kydn=!0,bs.state=!bs.state)?'BOOST ON':'BOOST OFF':0:bs.ui[g.it]='BOOST ON':0)),
