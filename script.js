@@ -3,7 +3,7 @@
     typeof __a=='undefined'?(
         // Setup global functions
         __a=0,
-        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),ls:localStorage,fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
+        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
         g.bd=g.dc.body,
 
         g.line=g.dc[g.qs]("#upcoming-container polyline"),
@@ -99,12 +99,14 @@
         g.io.fakemseclk=(el,ko)=>g.io.fakemseev('click',el,ko),
 
 
+        //---------------------------------------------------------------------
         // Local storage management
-        g.io.lsget=k=>JSON.parse(g.ls.getItem(k)),
-        g.io.lsset=(k,v)=>g.ls.setItem(k,JSON.stringify(v)),
-        g.io.lsdflt=(n,k,d)=>(g.io.lsget(n)||{})[k]||d,
-        g.io.keybind=(k,d)=>g.io.lsdflt('controls_keys',k,d),
-        g.io.boosttoggled=_=>g.io.lsdflt('controls_keys_settings','toggleBoost',!1),
+        g.ls={ls:localStorage},
+        g.ls.get=k=>JSON.parse(g.ls.ls.getItem(k)),
+        g.ls.set=(k,v)=>g.ls.ls.setItem(k,JSON.stringify(v)),
+        g.ls.dflt=(n,k,d)=>(g.ls.get(n)||{})[k]||d,
+        g.ls.keybind=(k,d)=>g.ls.dflt('controls_keys',k,d),
+        g.ls.boosttoggled=_=>g.ls.dflt('controls_keys_settings','toggleBoost',!1),
 
         //---------------------------------------------------------------------
         g.m_unlocked=!1,
@@ -182,15 +184,15 @@
         
         // Set up keybinds settings for mod
         // instead save when settings change + reset button
-        // g.io.lsset('modkeybinds',g.km.b),
+        // g.ls.set('modkeybinds',g.km.b),
         g.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
-        (g.km.todefault=_=>g.km.b=g.io.lsget(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
+        (g.km.todefault=_=>g.km.b=g.ls.get(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
         // The order that the properties are displayed in the settings (reversed because it is added in reverse order)
         g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
         // Select the keybinds menu icon
         g.km.menu=g.getmenu(3),
         // Set a keybind and sync to local storage
-        g.km.setkey=(k,v)=>(g.km.b[k]=v,g.io.lsset(g.km.lsname,g.km.b)),
+        g.km.setkey=(k,v)=>(g.km.b[k]=v,g.ls.set(g.km.lsname,g.km.b)),
         // stores the label and field of the field being edited
         g.km.ed=['',null],
         g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
@@ -223,13 +225,13 @@
 
 
         //open and hide debug menus
-        g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey({"code":g.io.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.style.opacity=0,g.fpscnt.style.opacity=0,g.f3open=!1),
+        g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey({"code":g.ls.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.style.opacity=0,g.fpscnt.style.opacity=0,g.f3open=!1),
         
         // Add proxy F3 menu key (F2)
         g.io.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
-        g.io.kyprs(e=>e.code==g.io.keybind('ToggleUI','KeyU')?g.io.tvisall():0),
+        g.io.kyprs(e=>e.code==g.ls.keybind('ToggleUI','KeyU')?g.io.tvisall():0),
 
         // Display hidden ms counter
         g.fpscnt.children[1].style.display='block',
@@ -250,9 +252,13 @@
 
         //------------------------------------------------------------------------------------
         // ROADTIME
-        rt={sd:g.D(),ds:g.dist(),hs:g.io.lsget('modrt_hs')||0,hsdist:g.io.lsget('modrt_hsdist')||0,reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
+        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
+        rt.hs=g.ls.get(rt.lsn_hs)||0,
+        rt.hsdist=g.ls.get(rt.lsn_hsdist)||0,
 
-        rt.time=v=>v?`${(v-=(_hh=g.fl(v/36e5))*36e5),_hh}:${(v-=(_m=g.fl(v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(v/1e3)).slice(-2)}`:'-',
+
+        rt.formattime=v=>v?`${(v-=(_hh=g.fl(v/36e5))*36e5),_hh}:${(v-=(_m=g.fl(v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(v/1e3)).slice(-2)}`:'-',
+        rt.formatdist=v=>v?v.toFixed(2)+'km':'-',
 
         // Set up UI roadtime
         (rt.ui=g.div()).style=g.style+'left:50%;top:0;width:300px',
@@ -260,14 +266,14 @@
         _ad=_=>(_x=g.div(),_x.style='padding:5px',rt.ui[g.ap](_x),_x),
         rt.tdiv=_ad(),
         rt.ddiv=_ad(),
-        (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.time(g.io.lsget('modrt_hs'))}`,
-        (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.time(g.io.lsget('modrt_hsdist'))}`,
+        (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.formattime(rt.hs)}`,
+        (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.formatdist(rt.hsdist)}`,
         g.ui.add(rt.ui),
 
         // Start loop roadtime
         setInterval(_=>(
             // check if debug menu is open
-            !g.hasdebugopen()?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.io.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`)
+            !g.hasdebugopen()?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.ls.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`)
             :(
                 // calculate distance to road line
                 _p=g.pos(),
@@ -280,17 +286,18 @@
                 _sc=g.D()-rt.sd+rt.savedtime,
                 // Save the distance and time on pause, and keep dist+time frozen during pause
                 g.ispaused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.dist(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
-                // parse time
-                _s=rt.time(_sc),
+                // format time and distance in printable format
+                _fs=rt.formattime(_sc),
+                _fd=rt.formatdist(_dist),
                 // write output
                 rt.reset||_d>3.2||!rt.started
                     ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
-                    :(rt.tdiv[g.it]=`Time on road: ${_s}`,rt.ddiv[g.it]=`Distance: ${_dist.toFixed(2)}km`,
-                    _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_s}`,g.io.lsset('modrt_hs',_sc)):0,
-                    _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_dist.toFixed(2)}km`,g.io.lsset('modrs_hsdist',_dist)):0)
+                    :(rt.tdiv[g.it]=`Time on road: ${_fs}`,rt.ddiv[g.it]=`Distance: ${_fd}`,
+                    _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_fs}`,g.ls.set(rt.lsn_hs,_sc)):0,
+                    _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_fd}`,g.ls.set(rt.lsn_hsdist,_dist)):0)
         )),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
-        g.io.kydn(e=>(rt.reset=e.code===g.io.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.io.keybind('Forward','KeyW'),g.io.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
+        g.io.kydn(e=>(rt.reset=e.code===g.ls.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.ls.keybind('Forward','KeyW'),g.ls.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
         // toggle visibility of ui with '1' key
         g.io.addtvis(g.km.b['Road Time Display'],rt.ui),
 
@@ -333,9 +340,9 @@
         g.ui.add(bs.ui),
         bs.ui[g.it]='BOOST OFF',
 
-        g.io.kydn(e=>((_m=g.io.boosttoggled())!=bs.tmode?(bs.state=!1,bs.tmode=_m):0,e.code==g.io.keybind('Boost','ShiftLeft')?_m?!bs.kydn?bs.ui[g.it]=(bs.kydn=!0,bs.state=!bs.state)?'BOOST ON':'BOOST OFF':0:bs.ui[g.it]='BOOST ON':0)),
-        g.io.kyup(e=>e.code==g.io.keybind('Boost','ShiftLeft')?g.io.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
-        // g.io.kydn(e=>e.code===g.io.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
+        g.io.kydn(e=>((_m=g.ls.boosttoggled())!=bs.tmode?(bs.state=!1,bs.tmode=_m):0,e.code==g.ls.keybind('Boost','ShiftLeft')?_m?!bs.kydn?bs.ui[g.it]=(bs.kydn=!0,bs.state=!bs.state)?'BOOST ON':'BOOST OFF':0:bs.ui[g.it]='BOOST ON':0)),
+        g.io.kyup(e=>e.code==g.ls.keybind('Boost','ShiftLeft')?g.ls.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
+        // g.io.kydn(e=>e.code===g.ls.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
 
         g.io.addtvis(g.km.b['Boost Display'],bs.ui),
 
