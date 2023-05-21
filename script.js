@@ -3,7 +3,7 @@
     typeof __a=='undefined'?(
         // Setup global functions
         __a=0,
-        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'appendChild',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
+        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'append',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
         g.bd=g.dc.body,
 
         g.line=g.dc[g.qs]("#upcoming-container polyline"),
@@ -30,8 +30,6 @@
         // ev: a list of all attached event listeners for each event type
         // tvisels: all elements toggled by toggle keypres
         g.io={keys:[],ev:{keydown:[],keyup:[],keypress:[],mousedown:[],mouseup:[],mouseover:[],mouseout:[],click:[]},tvisels:[]},
-        // ids of all menus (part of the menu icon src)
-        g.io.menunames=['kofi','feedback','vol','controls','config','circle'],
         // Add an event listener to the list
         g.io.add=(t,e,tgt=null)=>g.io.ev[t].push({callback:e,target:tgt}),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
@@ -111,7 +109,7 @@
         //---------------------------------------------------------------------
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
-        g.getmenu=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>x.firstChild.src.includes(g.io.menunames[m]))).length?_m[0]:null,
+        g.getmenu=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>x.firstChild.src.includes(g.ui.menunames[m]))).length?_m[0]:null,
         g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
         g.openst=(m,s)=>(g.menulock(1),g.io.fakemseov(g.getmenu(m)),g.io.fakemseov(_o=g.getstoption(s)),_o),
         g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
@@ -126,6 +124,37 @@
         //-----------------------------------------------------------------
         // functions responsible for managing ui in the menus
         g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option'},
+        // ids of all menus (part of the menu icon src)
+        g.ui.menunames=['kofi','feedback','vol','controls','config','circle'],
+        g.ui.inputtypes=['controls.','controls_mouse','controls_controller','all'],
+        // Setup elements data structure for each menu
+        g.ui.menunames.forEach(x=>(g.ui.els[x]={input:{}},g.ui.inputtypes.forEach(y=>g.ui.els[x].input[y]={tab:{all:[]}}))),
+
+        g.ui.getmenu=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>x.firstChild.src.includes(g.ui.menunames.includes(m)?m:g.ui.menunames[m]))).length?_m[0]:null,
+
+
+        // Add component to menu under a(n optional) input type in a(n optional) tab. 
+        // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
+        // input type is a string of one of the input types specified in `g.ui.inputtypes`
+        // tab is a number starting from 1, that specifies which tab it should be added to. If it is 0 or null, it is added to all tabs.
+        g.ui.addcomponent=(el,m,it=null,tab=null)=>m<0||m>g.ui.menunames.length?
+            (_it=g.ui.inputtypes.includes(_it)?it:'all',_m=g.ui.els[g.ui.menunames[m]],_t=_m.input[_it].tab[tab||'all'],!_t?_t=[]:0,_t.push(el))
+            :g.io.log(`${m} is not a valid menu index. Failed to add element: `,el),
+
+
+        // Draw elements to open menu
+        // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: 1-indexed number indicating tab (set to null if not applicable)
+        g.ui.drawcomponent=(s,el)=>s.prepend(el),
+        g.ui.drawtab=(s,it,tab)=>!tab?it.tab[tab].forEach(x=>g.ui.drawcomponent(s,x)):0,
+        g.ui.drawinput=(s,m,it,tab)=>!it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
+        g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
+
+        // Detect currently active menu
+        g.ui.handlemenu=m=>focus=>e=>0,
+        // Add event listeners for opening menu
+        g.ui.menunames.forEach(x=>(e=g.ui.handlemenu(m),mel=g.ui.getmenu(m),g.io.mseov(e,mel(!1)),g.io.msedn(e,mel(!0)))),
+        // Add event listener for closing menu
+
 
         g.ui.ready=s=>s.tabIndex=-1,
         g.ui.deselect=el=>(_x=el[g.cn]).includes('input-type_dropdown')||_x.includes('input-type_keybind')?('close the dropdown or stop keybind'):0,
