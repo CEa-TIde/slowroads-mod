@@ -66,8 +66,8 @@
         console.log=function(...args){g.io.log(...args);g.loghooked?g.loghook(args):0},
 
         // Toggle ui
-        g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?x.el.style.display=x.el.style.display=='none'?'block':'none':0)),
-        g.io.addtvis=(k,el)=>g.io.tvisels.push({k:k,el:el}),
+        g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?(x.el.style.display=(_s=x.el.style.display=='none')?'block':'none',x.callback&&x.callback(_s)):0)),
+        g.io.addtvis=(k,el,cb=null)=>g.io.tvisels.push({k:k,el:el,callback:cb}),
         g.io.tvisall=(g.io.uivis=!0,_=>(g.io.uivis=!g.io.uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>x.style.opacity=g.io.uivis?1:0))),
 
 
@@ -152,7 +152,7 @@
         // Detect currently active menu
         g.ui.handlemenu=m=>focus=>e=>0,
         // Add event listeners for opening menu
-        g.ui.menunames.forEach(x=>(e=g.ui.handlemenu(m),mel=g.ui.getmenu(m),g.io.mseov(e,mel(!1)),g.io.msedn(e,mel(!0)))),
+        g.ui.menunames.forEach(m=>(e=g.ui.handlemenu(m),mel=g.ui.getmenu(m),g.io.mseov(e(!1),mel),g.io.msedn(e(!0),mel))),
         // Add event listener for closing menu
 
 
@@ -281,7 +281,7 @@
 
         //------------------------------------------------------------------------------------
         // ROADTIME
-        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:0,started:!1,paused:!1,saveddist:0,savedtime:0},
+        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:0,started:!1,paused:!1,hidden:!0,saveddist:0,savedtime:0},
         rt.hs=g.ls.get(rt.lsn_hs)||0,
         rt.hsdist=g.ls.get(rt.lsn_hsdist)||0,
 
@@ -301,34 +301,36 @@
 
         // Start loop roadtime
         setInterval(_=>(
-            // check if debug menu is open
-            !g.hasdebugopen()?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.ls.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`)
-            :(
-                // calculate distance to road line
-                _p=g.pos(),
-                _r=g.line.points,
-                _a=-_r[0].y+_r[1].y,
-                _b=_r[0].x-_r[1].x,
-                _d=Math.abs(_a*_p[0]+_b*_p[1]-_a*_r[0].x-_b*_r[0].y)/Math.sqrt(_a*_a+_b*_b),
-                // Calculate distance and time on road
-                _dist=rt.saveddist+Math.round((g.dist()-rt.ds)*100)/100,
-                _sc=g.D()-rt.sd+rt.savedtime,
-                // Save the distance and time on pause, and keep dist+time frozen during pause
-                g.ispaused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.dist(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
-                // format time and distance in printable format
-                _fs=rt.formattime(_sc),
-                _fd=rt.formatdist(_dist),
-                // write output
-                rt.reset||_d>3.2||!rt.started
-                    ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
-                    :(rt.tdiv[g.it]=`Time on road: ${_fs}`,rt.ddiv[g.it]=`Distance: ${_fd}`,
-                    _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_fs}`,g.ls.set(rt.lsn_hs,_sc)):0,
-                    _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_fd}`,g.ls.set(rt.lsn_hsdist,_dist)):0)
-        )),16), //16 = 1000/60fps
+            // check if ui is hidden
+            rt.hidden?0:(
+                // check if debug menu is open
+                !g.hasdebugopen()?g.err(`Debug menu needs to be open for the script to properly work. Please press ${g.ls.keybind('ToggleDebug','F3')} once to open it. You can toggle the visibility with ${g.km.b['Debug']}.`)
+                :(
+                    // calculate distance to road line
+                    _p=g.pos(),
+                    _r=g.line.points,
+                    _a=-_r[0].y+_r[1].y,
+                    _b=_r[0].x-_r[1].x,
+                    _d=Math.abs(_a*_p[0]+_b*_p[1]-_a*_r[0].x-_b*_r[0].y)/Math.sqrt(_a*_a+_b*_b),
+                    // Calculate distance and time on road
+                    _dist=rt.saveddist+Math.round((g.dist()-rt.ds)*100)/100,
+                    _sc=g.D()-rt.sd+rt.savedtime,
+                    // Save the distance and time on pause, and keep dist+time frozen during pause
+                    g.ispaused()?(!rt.paused?(rt.saveddist=_dist,rt.savedtime=_sc,rt.paused=!0):0,rt.sd=g.D(),rt.ds=g.dist(),_dist=rt.saveddist,_sc=rt.savedtime):rt.paused=!1,
+                    // format time and distance in printable format
+                    _fs=rt.formattime(_sc),
+                    _fd=rt.formatdist(_dist),
+                    // write output
+                    rt.reset||_d>3.2||!rt.started
+                        ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
+                        :(rt.tdiv[g.it]=`Time on road: ${_fs}`,rt.ddiv[g.it]=`Distance: ${_fd}`,
+                        _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_fs}`,g.ls.set(rt.lsn_hs,_sc)):0,
+                        _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_fd}`,g.ls.set(rt.lsn_hsdist,_dist)):0)
+        ))),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
         g.io.kydn(e=>(rt.reset=e.code===g.ls.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.ls.keybind('Forward','KeyW'),g.ls.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
         // toggle visibility of ui with '1' key
-        g.io.addtvis(g.km.b['Road Time Display'],rt.ui),
+        g.io.addtvis(g.km.b['Road Time Display'],rt.ui,s=>(rt.hidden=!s,rt.started=!1)),
 
         //---------------------------------------------------------------------------------
         // WHEEL DRIVE SWITCHER
