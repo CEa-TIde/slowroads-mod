@@ -25,20 +25,21 @@
         //-----------------------------------------------------------------
         // io handler
         // All events are caught in #game-main, unless keybind is recorded, in which case the keypresses are recorded in the settings and bubbling is prevented
+        // NOTE: variables in callback function should be local to avoid overwriting global variable before callback is called
         //--------
         // keys: all keys that are pressed at the moment
         // ev: a list of all attached event listeners for each event type
-        // tvisels: all elements toggled by toggle keypres
+        // tvisels: all elements toggled by toggle keypress
         g.io={keys:[],ev:{keydown:[],keyup:[],keypress:[],mousedown:[],mouseup:[],mouseover:[],mouseout:[],click:[]},tvisels:[]},
         // Add an event listener to the list
-        g.io.add=(t,e,tgt=null)=>g.io.ev[t].push({callback:e,target:tgt}),
+        g.io.add=(type,cb,tgt=null)=>g.io.ev[type].push({callback:cb,target:tgt}),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
         // If target is set, the target of the event must be equal to or child of the registered target.
         g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t].filter(x=>(x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
-        g.io.chkpress=(t,e)=>(_c=e.code,_k=g.io.keys.includes(_c),t=='keydown'&&!_k?(g.io.keys.push(_c),g.io.fireev('keypress',e)):t=='keyup'&&_k?g.io.keys.remove(_c):0),
+        g.io.chkpress=(t,e)=>(in__code=e.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',e)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
-        g.io.handler=e=>(_t=e.type,g.io.fireev(_t,e),g.io.chkpress(_t,e)),
+        g.io.handler=e=>(in__type=e.type,g.io.fireev(in__type,e),g.io.chkpress(in__type,e)),
         g.io.ael=(t,e,el)=>(el||g.evroot)[g.ael](t,e||g.io.handler),
 
         // Register all event listeners to default handler
@@ -150,9 +151,9 @@
         g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
 
         // Detect currently active menu
-        g.ui.handlemenu=m=>focus=>e=>0,
+        g.ui.handlemenu=(m,focus)=>e=>0,
         // Add event listeners for opening menu
-        g.ui.menunames.forEach(m=>(e=g.ui.handlemenu(m),mel=g.ui.getmenu(m),g.io.mseov(e(!1),mel),g.io.msedn(e(!0),mel))),
+        g.ui.menunames.forEach(m=>(e=g.ui.handlemenu,mel=g.ui.getmenu(m),g.io.mseov(e(m,!1),mel),g.io.msedn(e(m,!0),mel))),
         // Add event listener for closing menu
 
 
@@ -164,7 +165,7 @@
         g.ui.add=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
 
         // change toggle to clicked state, and call callback function with either 0 or 1 given the new state (not checked if state changed)
-        g.ui.toggle=(t,o,e)=>(t.children[+!o].classList.remove('bool_selected'),t[o].classList.add('bool_selected'),e(o)),
+        g.ui.toggle=(t,o,e)=>(t.children[+!o].classList.remove('bool_selected'),t.children[o].classList.add('bool_selected'),e(o)),
         // toggle collapse section (elements in section are stored in _els variable of element)
         // g.ui.collapse=(s,sc,cr)=>(_t=cr[g.it]=='-',_i=(_c=[...s.children]).indexOf(sc),_nxt=s[g.qs](`.collapsible:nth-child(n+${_i+2})`),_c.slice(_i+1,_nxt?_c.indexOf(_nxt):1e5).forEach(x=>x.style.display=_t?'none':'flex'),cr[g.it]=_t?'+':'-'),
         g.ui.collapse=(sc,crs)=>(_t=crs[g.it]=='-',sc._els.forEach(x=>x.style.display=_t?'none':'flex'),crs[g.it]=_t?'+':'-'),
@@ -177,25 +178,25 @@
         g.ui.ddselect=(d,o,e)=>o[g.cn]==g.ui.eo?(_o=o[g.it],d[g.it]=_o,e(_o)):0,
 
         // creation of ui components
-        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+tlt?' help':'',_l.title=tlt,_l[g.it]=l),
+        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
         
-        g.ui.makebttn=(s,l,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_bttn'+tlt?' help':'',_el.title=tlt,_el[g.it]=l,g.io.mseclk(e,_el),s.prepend(_el),_el),
+        g.ui.makebttn=(s,l,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el);s.prepend(_el);return _el},
 
-        g.ui.makekeybind=(s,l,d,tlt='')=>((_e=g.div())[g.cn]=g.ui.se,_l=g.ui.makelbl(l,tlt),(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
-            g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
+        g.ui.makekeybind=(s,l,d,tlt='')=>{var _e=g.div();_e[g.cn]=g.ui.se;var _l=g.ui.makelbl(l,tlt);var _c=g.div();_c[g.cn]='settings-input-signal-clear';_c[g.it]='x';var _i=g.div();_i[g.cn]='settings-input-signal';_i.title='Click to remap';_i[g.it]=v;
+            g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e);return _e},
         
-        g.ui.maketoggle=(s,l,o1,o2,d,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_toggle',_l=g.ui.makelbl(l,tlt),(_t=g.div())[g.cn]='settings-input-bool',
-            (_o1=g.div())[g.cn]=(_o2=g.div())[g.cn]='settings-input-bool_option',_o1[g.it]=o1,_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected'),
-            g.io.msedn(_=>g.ui.toggle(_t,0,e),_o1),g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2),_t[g.ap](_o1,_o2),_el[g.ap](_l,_t),s.prepend(_el),_el),
+        g.ui.maketoggle=(s,l,o1,o2,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
+            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');
+            g.io.msedn((_=>g.ui.toggle(_t,0,e)),_o1);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2);_t[g.ap](_o1,_o2),_el[g.ap](_l,_t);s.prepend(_el);return _el},
         
-        g.ui.makedropdown=(s,l,o,d,e,tlt='')=>((_el=g.div())[g.cn]=g.ui.se+'input-type_dropdown',_l=g.ui.makelbl(l,tlt),(_e=g.div())[g.cn]='settings-input-enum',_e[g.it]=o[d],
-            (_a=g.div())[g.cn]='settings-input-enum_arrow',_a[g.it]='▾',_e[g.ap](_a),(_o=g.div())[g.cn]='settings-input-enum_options',_o.style.display='none',g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o),
-            _op=o.forEach(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x)),_o[g.ap](..._op),g.io.mseov(_=>g.ui.opendd(_o),_e),g.io.mseout(_=>g.ui.closedd(_o),_e),s.prepend(_el),_el),
+        g.ui.makedropdown=(s,l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
+            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';_e[g.ap](_a);var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o);
+            _op=o.forEach(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e);g.io.mseout(_=>g.ui.closedd(_o),_e);s.prepend(_el);return _el},
 
-        g.ui.makesection=(s,l,els)=>((_el=g.div())[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=l,(_c=g.div())[g.cn]='collapsible-cross',
-            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el),_c[g.it]='-',_el._els=els,_el[g.ap](_t,_c),s.prepend(_el),_el),
+        g.ui.makesection=(s,l,els)=>{var _el=g.div();_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
+            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);s.prepend(_el);return _el},
         
-        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>0,
+        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{},
 
         // add styling ui
         g.css.insertRule('.mod-entry.input-type_bttn:hover{background:#3b3b3b;}'),
