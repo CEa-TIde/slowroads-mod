@@ -65,7 +65,7 @@
         // Call all attached hooks with the passed arguments.
         g.io.loghook=v=>g.loghooks.forEach(x=>x.enabled?x.cb(v):0),
         // Overwrite console.log function with hook so that the output can be read. Argument array is passed to the hooks.
-        console.log=function(...args){g.io.log(...args);g.loghook(args)},
+        console.log=function(...args){g.io.log(...args);g.io.loghook(args)},
 
         // Toggle ui
         g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?(x.el.style.display=(_s=x.el.style.display=='none')?'block':'none',x.callback&&x.callback(_s)):0)),
