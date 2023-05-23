@@ -139,16 +139,16 @@
         // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
         // input type is a string of one of the input types specified in `g.ui.inputtypes`
         // tab is a number starting from 1, that specifies which tab it should be added to. If it is 0 or null, it is added to all tabs.
-        g.ui.addcomponent=(el,m,it=null,tab=null)=>m<0||m>g.ui.menunames.length?
-            (_it=g.ui.inputtypes.includes(_it)?it:'all',_m=g.ui.els[g.ui.menunames[m]],_t=_m.input[_it].tab[tab||'all'],!_t?_t=[]:0,_t.push(el))
+        g.ui.addcomponent=(el,m,it=null,tab=null)=>m>=0||m<g.ui.menunames.length?
+            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[g.ui.menunames[m]],_t=_m.input[_it].tab[tab||'all'],!_t?_t=[]:0,_t.push(el))
             :g.io.log(`${m} is not a valid menu index. Failed to add element: `,el),
 
 
         // Draw elements to open menu
         // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: 1-indexed number indicating tab (set to null if not applicable)
         g.ui.drawcomponent=(s,el)=>s.prepend(el),
-        g.ui.drawtab=(s,it,tab)=>!tab?it.tab[tab].forEach(x=>g.ui.drawcomponent(s,x)):0,
-        g.ui.drawinput=(s,m,it,tab)=>!it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
+        g.ui.drawtab=(s,it,tab)=>tab?(it.tab[tab].forEach(x=>g.ui.drawcomponent(s,x))):0,
+        g.ui.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
         g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
 
         // Detect currently active menu
@@ -176,26 +176,26 @@
         g.ui.opendd=o=>o?(o.style.display='flex',g.ui.ddopen=o):0,
         g.ui.closedd=o=>o?(o.style.display='none',g.ui.ddopen=null):0,
         // Select option dropdown
-        g.ui.ddselect=(d,o,e)=>o[g.cn]==g.ui.eo?(_o=o[g.it],d[g.it]=_o,e(_o)):0,
+        g.ui.ddselect=(d,o,e)=>o[g.cn]==g.ui.eo?(_o=o[g.it],d.firstChild.nodeValue=_o,e(_o)):0,
 
         // creation of ui components
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
         
-        g.ui.makebttn=(s,l,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el);s.prepend(_el);return _el},
+        g.ui.makebttn=(l,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el);return _el},
 
         g.ui.makekeybind=(s,l,d,tlt='')=>{var _e=g.div();_e[g.cn]=g.ui.se;var _l=g.ui.makelbl(l,tlt);var _c=g.div();_c[g.cn]='settings-input-signal-clear';_c[g.it]='x';var _i=g.div();_i[g.cn]='settings-input-signal';_i.title='Click to remap';_i[g.it]=v;
-            g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e);return _e},
+            g.km.aelclear(_c,_l,_i);g.km.aelbeginedit(s,_l,_i);g.km.aeledit(_i);_e[g.ap](_l,_c,_i);return _e},
         
-        g.ui.maketoggle=(s,l,o1,o2,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
+        g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
             var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');
-            g.io.msedn((_=>g.ui.toggle(_t,0,e)),_o1);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2);_t[g.ap](_o1,_o2),_el[g.ap](_l,_t);s.prepend(_el);return _el},
+            g.io.msedn((_=>g.ui.toggle(_t,0,e)),_o1);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
         
-        g.ui.makedropdown=(s,l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
-            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';_e[g.ap](_a);var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o);
-            _op=o.forEach(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e);g.io.mseout(_=>g.ui.closedd(_o),_e);s.prepend(_el);return _el},
+        g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
+            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o);
+            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e);g.io.mseout(_=>g.ui.closedd(_o),_e);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
 
-        g.ui.makesection=(s,l,els)=>{var _el=g.div();_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
-            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);s.prepend(_el);return _el},
+        g.ui.makesection=(l,els)=>{var _el=g.div();_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
+            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);return _el},
         
         g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{},
 
