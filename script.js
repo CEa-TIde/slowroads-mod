@@ -30,12 +30,12 @@
         // keys: all keys that are pressed at the moment
         // ev: a list of all attached event listeners for each event type
         // tvisels: all elements toggled by toggle keypress
-        g.io={keys:[],ev:{keydown:[],keyup:[],keypress:[],mousedown:[],mouseup:[],mouseover:[],mouseout:[],click:[]},tvisels:[]},
-        // Add an event listener to the list
-        g.io.add=(type,cb,tgt=null)=>g.io.ev[type].push({callback:cb,target:tgt}),
+        g.io={keys:[],ev:{},tvisels:[]},
+        // Add an event listener to the list (type is added if not already present)
+        g.io.add=(type,cb,tgt=null)=>(!g.io.ev[type]?g.io.ev[type]=[]:0,g.io.ev[type].push({callback:cb,target:tgt})),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
         // If target is set, the target of the event must be equal to or child of the registered target.
-        g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t].filter(x=>(x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e))),
+        g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t]?.filter(x=>(x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
         g.io.chkpress=(t,e)=>(in__code=e.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',e)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
@@ -43,7 +43,7 @@
         g.io.ael=(t,e,el)=>(el||g.evroot)[g.ael](t,e||g.io.handler),
 
         // Register all event listeners to default handler
-        ['mousedown','mouseup','mouseover','mouseout','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
+        ['mousedown','mouseup','mouseover','mouseleave','mouseout','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
 
         g.io.kydn=(e,el)=>g.io.add('keydown',e,el),
         g.io.kyup=(e,el)=>g.io.add('keyup',e,el),
@@ -52,6 +52,7 @@
         g.io.msedn=(e,el)=>g.io.add('mousedown',e,el),
         g.io.mseup=(e,el)=>g.io.add('mouseup',e,el),
         g.io.mseov=(e,el)=>g.io.add('mouseover',e,el),
+        g.io.mselv=(e,el)=>g.io.add('mouseleave',e,el),
         g.io.mseout=(e,el)=>g.io.add('mouseout',e,el),
         g.io.mseclk=(e,el)=>g.io.add('click',e,el),
 
@@ -64,7 +65,7 @@
         // Call all attached hooks with the passed arguments.
         g.io.loghook=v=>g.loghooks.forEach(x=>x.enabled?x.cb(v):0),
         // Overwrite console.log function with hook so that the output can be read. Argument array is passed to the hooks.
-        console.log=function(...args){g.io.log(...args);g.loghooked?g.loghook(args):0},
+        console.log=function(...args){g.io.log(...args);g.loghook(args)},
 
         // Toggle ui
         g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?(x.el.style.display=(_s=x.el.style.display=='none')?'block':'none',x.callback&&x.callback(_s)):0)),
@@ -111,9 +112,8 @@
         //---------------------------------------------------------------------
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
-        g.getmenu=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>x.firstChild.src.includes(g.ui.menunames[m]))).length?_m[0]:null,
         g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
-        g.openst=(m,s)=>(g.menulock(1),g.io.fakemseov(g.getmenu(m)),g.io.fakemseov(_o=g.getstoption(s)),_o),
+        g.openst=(m,s)=>(g.menulock(1),g.io.fakemseov(g.ui.geticon(m)),_o=g.getstoption(s),g.io.fakemseov(_o),_o),
         g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
         // only works with dropdowns
         // get value of setting passed in m
@@ -125,23 +125,27 @@
 
         //-----------------------------------------------------------------
         // functions responsible for managing ui in the menus
-        g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option'},
-        // ids of all menus (part of the menu icon src)
-        g.ui.menunames=['kofi','feedback','vol','controls','config','circle'],
+        g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
+        // ids of all menu icons (part of the menu icon src).
+        g.ui.iconnames=['kofi','feedback','vol','controls','config','circle'],
+        // all ids of icon that have a menu attached to it.
+        g.ui.menunames=['controls','config'],
+        // ids of input types (part of the icon src)
         g.ui.inputtypes=['controls.','controls_mouse','controls_controller','all'],
         // Setup elements data structure for each menu
-        g.ui.menunames.forEach(x=>(g.ui.els[x]={input:{}},g.ui.inputtypes.forEach(y=>g.ui.els[x].input[y]={tab:{all:[]}}))),
+        g.ui.iconnames.forEach(x=>(g.ui.els[x]={input:{}},g.ui.inputtypes.forEach(y=>g.ui.els[x].input[y]={tab:{all:[]}}))),
 
-        g.ui.getmenu=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>x.firstChild.src.includes(g.ui.menunames.includes(m)?m:g.ui.menunames[m]))).length?_m[0]:null,
+        g.ui.geticon=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>g.ui.iconnames.includes(m)&&x.firstChild.src.includes(m))).length?_m[0]:null,
+        g.ui.settinglist=_=>g.dc[g.qs]('#menu-bar-right>.settings-input-list'),
 
 
         // Add component to menu under a(n optional) input type in a(n optional) tab. 
         // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
         // input type is a string of one of the input types specified in `g.ui.inputtypes`
         // tab is a number starting from 1, that specifies which tab it should be added to. If it is 0 or null, it is added to all tabs.
-        g.ui.addcomponent=(el,m,it=null,tab=null)=>m>=0||m<g.ui.menunames.length?
-            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[g.ui.menunames[m]],_t=_m.input[_it].tab[tab||'all'],!_t?_t=[]:0,_t.push(el))
-            :g.io.log(`${m} is not a valid menu index. Failed to add element: `,el),
+        g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
+            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_t=_m.input[_it].tab[tab||'all'],!_t?_t=[]:0,_t.push(el))
+            :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
 
 
         // Draw elements to open menu
@@ -151,11 +155,22 @@
         g.ui.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
         g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
 
-        // Detect currently active menu
-        g.ui.handlemenu=(m,focus)=>e=>0,
-        // Add event listeners for opening menu
-        g.ui.menunames.forEach(m=>(e=g.ui.handlemenu,mel=g.ui.getmenu(m),g.io.mseov(e(m,!1),mel),g.io.msedn(e(m,!0),mel))),
-        // Add event listener for closing menu
+
+        g.ui.settingfocused=!1,
+        g.ui.currmenuicon=null,
+        // Return focus if keybind was being edited and 
+        g.ui.closemenu=_=>g.ui.currmenuicon?(g.io.log('closing menu...'),g.ui.currmenu=null,g.ui.settingfocused=!1):0,
+        // Handle currently active menu + add ev listeners for closing menu
+        // TODO DRAW MENU
+        g.ui.handlemenu=(m,clk,icon)=>e=>(g.ui.closemenu(),g.io.log('opening menu...'),g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ib?clk?g.io.msedn(g.ui.closemenu,_ib):g.io.mseov(g.ui.closemenu,_ib):0),
+        // Add event listeners for opening menu (by click and by hover; former starts focus)
+        g.ui.menunames.forEach(m=>(e=g.ui.handlemenu,mel=g.ui.geticon(m),g.io.mseov(e(m,!1,mel),mel),g.io.msedn(e(m,!0,mel),mel))),
+        // Close menu if hovered over anything else in the menubar, and the menu isn't open by focus
+        // TODO FIX
+        // g.ui.closeonhover=e=>g.ui.currmenuicon&&!g.ui.currmenuicon.contains(e.target)&&!g.ui.settingfocused?(g.io.log('hovered over other icon. Closing...',g.ui.currmenuicon,e.target),g.ui.closemenu()):0,
+        // [...g.ui.menubar[g.qsa]('#menu-bar-left,#menu-bar-right>.menu-item,.menu-bar-vertical-divider')].forEach(el=>g.io.mseov(g.ui.closeonhover,el)),
+        // g.io.mseov(e=>e.target===g.ui.menubar?g.ui.closeonhover(e):0,g.ui.menubar),
+
 
 
         g.ui.ready=s=>s.tabIndex=-1,
@@ -168,16 +183,16 @@
         // change toggle to clicked state, and call callback function with either 0 or 1 given the new state (not checked if state changed)
         g.ui.toggle=(t,o,e)=>(t.children[+!o].classList.remove('bool_selected'),t.children[o].classList.add('bool_selected'),e(o)),
         // toggle collapse section (elements in section are stored in _els variable of element)
-        // g.ui.collapse=(s,sc,cr)=>(_t=cr[g.it]=='-',_i=(_c=[...s.children]).indexOf(sc),_nxt=s[g.qs](`.collapsible:nth-child(n+${_i+2})`),_c.slice(_i+1,_nxt?_c.indexOf(_nxt):1e5).forEach(x=>x.style.display=_t?'none':'flex'),cr[g.it]=_t?'+':'-'),
         g.ui.collapse=(sc,crs)=>(_t=crs[g.it]=='-',sc._els.forEach(x=>x.style.display=_t?'none':'flex'),crs[g.it]=_t?'+':'-'),
 
         g.ui.ddopen=null,
         // Open or close dropdown
         g.ui.opendd=o=>o?(o.style.display='flex',g.ui.ddopen=o):0,
-        g.ui.closedd=o=>o?(o.style.display='none',g.ui.ddopen=null):0,
+        g.ui.closedd=_=>g.ui.ddopen?(g.ui.ddopen.style.display='none',g.ui.ddopen=null):0,
         // Select option dropdown
         g.ui.ddselect=(d,o,e)=>o[g.cn]==g.ui.eo?(_o=o[g.it],d.firstChild.nodeValue=_o,e(_o)):0,
 
+        //------------
         // creation of ui components
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
         
@@ -192,12 +207,13 @@
         
         g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
             var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o);
-            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e);g.io.mseout(_=>g.ui.closedd(_o),_e);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
+            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e);g.io.mseout(_=>g.ui.closedd(),_e);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
 
         g.ui.makesection=(l,els)=>{var _el=g.div();_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
             g.io.mseclk(_=>g.ui.collapse(_el,_c),_el);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);return _el},
         
         g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{},
+        //-------------
 
         // add styling ui
         g.css.insertRule('.mod-entry.input-type_bttn:hover{background:#3b3b3b;}'),
@@ -208,7 +224,7 @@
 
         // Set up settings UI for mod
         // g.st={opt:[]},
-        // g.st.menu=g.getmenu(3),
+        // g.st.menu=g.ui.geticon('config'),
         // g.st.add=(n,o,d)=>0,
         // g.st.makesection=(s,n)=>((_d=g.div())[g.cn]=g.ui.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=n,(_c=g.div())[g.cn]='collapsible-cross',_c[g.it]='-',_d[g.ap](_t),_d[g.ap](_c),s.prepend(_d),_d),
         // g.st.makeentry=(s,n,o,d)=>((_d=g.div())[g.cn]=g.ui.se,s.prepend(_d),_d),
@@ -222,7 +238,7 @@
         // The order that the properties are displayed in the settings (reversed because it is added in reverse order)
         g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
         // Select the keybinds menu icon
-        g.km.menu=g.getmenu(3),
+        g.km.menu=g.ui.geticon('controls'),
         // Set a keybind and sync to local storage
         g.km.setkey=(k,v)=>(g.km.b[k]=v,g.ls.set(g.km.lsname,g.km.b)),
         // stores the label and field of the field being edited
@@ -340,13 +356,13 @@
         wd={wdst:'Drive Mode'},
 
         wd.parse=s=>s.includes('All')?0:s.includes('Front')?1:2,
-        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst(4,wd.wdst))),g.exitst(),_s),
-        wd.switchstate=_=>(_s=g.getst(_x=g.openst(4,wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
+        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst('config',wd.wdst))),g.exitst(),_s),
+        wd.switchstate=_=>(_s=g.getst(_x=g.openst('config',wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
         wd.disp=x=>!x?'AWD':x==1?'FWD':'RWD',
         wd.update=s=>wd.wddiv[g.it]=wd.disp(s),
 
         // add event listener when menu is opened
-        wd.menu=g.getmenu(4),
+        wd.menu=g.ui.geticon('config'),
         wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&g.io.msedn(async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry)))),wd.entry)):0,
         g.io.msedn(wd.updatelistener,wd.menu),
         g.io.mseov(wd.updatelistener,wd.menu),
