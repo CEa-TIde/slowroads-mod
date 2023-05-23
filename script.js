@@ -3,7 +3,7 @@
     typeof __a=='undefined'?(
         // Setup global functions
         __a=0,
-        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'append',de:'dispatchEvent',cn:'className',ael:'addEventListener',D:_=>new Date(),fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
+        g={dc:document,it:'innerText',qs:'querySelector',qsa:'querySelectorAll',ap:'append',de:'dispatchEvent',cn:'className',ael:'addEventListener',hdit:'hidden-item',D:_=>new Date(),fl:Math.floor,wait:t=>new Promise(r=>setTimeout(r,t))},
         g.bd=g.dc.body,
 
         g.line=g.dc[g.qs]("#upcoming-container polyline"),
@@ -69,7 +69,8 @@
         // Toggle ui
         g.io.tvis=g.io.kydn(e=>g.io.tvisels.forEach(x=>e.code===x.k?(x.el.style.display=(_s=x.el.style.display=='none')?'block':'none',x.callback&&x.callback(_s)):0)),
         g.io.addtvis=(k,el,cb=null)=>g.io.tvisels.push({k:k,el:el,callback:cb}),
-        g.io.tvisall=(g.io.uivis=!0,_=>(g.io.uivis=!g.io.uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>x.style.opacity=g.io.uivis?1:0))),
+        g.io.uivis=!0,
+        g.io.tvisall=_=>(g.io.uivis=!g.io.uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>g.io.uivis?x.classList.remove(g.hdit):x.classList.add(g.hdit))),
 
 
         // Remapping of keybinds
@@ -201,6 +202,7 @@
         // add styling ui
         g.css.insertRule('.mod-entry.input-type_bttn:hover{background:#3b3b3b;}'),
         g.css.insertRule('.mod-entry.input-type_bttn{display:flex;align-items:center;justify-content:center;}'),
+        g.css.insertRule(`.${g.hdit}{opacity:0 !important;overflow-y:hidden;height:0 !important;padding:0 !important;}`),
 
         //-------------------------------------------------------------------
 
@@ -255,10 +257,10 @@
 
 
         //open and hide debug menus
-        g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey({"code":g.ls.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.style.opacity=0,g.fpscnt.style.opacity=0,g.f3open=!1),
+        g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey({"code":g.ls.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.classList.add(g.hdit),g.fpscnt.classList.add(g.hdit),g.f3open=!1),
         
         // Add proxy F3 menu key (F2)
-        g.io.kydn(e=>e.code===g.km.b['Debug']?(g.uidebug.style.opacity=g.fpscnt.style.opacity=(g.f3open=!g.f3open)?1:0):0),
+        g.io.kydn(e=>e.code===g.km.b['Debug']?(_u=g.uidebug.classList,_f=g.fpscnt.classList,(g.f3open=!g.f3open)?(_u.remove(g.hdit),_f.remove(g.hdit)):(_u.add(g.hdit),_f.add(g.hdit))):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
         g.io.kyprs(e=>e.code==g.ls.keybind('ToggleUI','KeyU')?g.io.tvisall():0),
@@ -345,9 +347,6 @@
 
         // add event listener when menu is opened
         wd.menu=g.getmenu(4),
-        // wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&wd.entry[g.ael](
-        //     'mousedown',async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry))))
-        // )):0,
         wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&g.io.msedn(async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry)))),wd.entry)):0,
         g.io.msedn(wd.updatelistener,wd.menu),
         g.io.mseov(wd.updatelistener,wd.menu),
