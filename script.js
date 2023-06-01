@@ -32,10 +32,11 @@
         // tvisels: all elements toggled by toggle keypress
         g.io={keys:[],ev:{},tvisels:[]},
         // Add an event listener to the list (type is added if not already present)
-        g.io.add=(type,cb,tgt=null)=>(!g.io.ev[type]?g.io.ev[type]=[]:0,g.io.ev[type].push({callback:cb,target:tgt})),
+        g.io.add=(type,cb,tgt=null)=>typeof cb!=='function'?console.error('callback specified is not a function: ',cb):(!g.io.ev[type]?g.io.ev[type]=[]:0,g.io.ev[type].push({callback:cb,target:tgt})),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
         // If target is set, the target of the event must be equal to or child of the registered target.
-        g.io.fireev=(t,e)=>(e.evtype=t,g.io.ev[t]?.filter(x=>(x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e))),
+        // Also checks if the targets still exist in DOM, and if not remove them from the event list (to prevent mem leak)
+        g.io.fireev=(t,e)=>(e.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.dc.contains(x.target)?_del.push(x):0,x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e)),_del.forEach(x=>g.io.ev[t].remove(x))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
         g.io.chkpress=(t,e)=>(in__code=e.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',e)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
@@ -43,16 +44,16 @@
         g.io.ael=(t,e,el)=>(el||g.evroot)[g.ael](t,e||g.io.handler),
 
         // Register all event listeners to default handler
-        ['mousedown','mouseup','mouseover','mouseleave','mouseout','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
+        ['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
 
         g.io.kydn=(e,el)=>g.io.add('keydown',e,el),
         g.io.kyup=(e,el)=>g.io.add('keyup',e,el),
-        g.io.kyprs=(e,el)=>g.io.add('keypress',e,el), // Custom event different from the built-in deprecated keypress event
+        g.io.kyprs=(e,el)=>g.io.add('keypress',e,el), // Custom event different from the built-in deprecated keypress event 
         
         g.io.msedn=(e,el)=>g.io.add('mousedown',e,el),
         g.io.mseup=(e,el)=>g.io.add('mouseup',e,el),
         g.io.mseov=(e,el)=>g.io.add('mouseover',e,el),
-        g.io.mselv=(e,el)=>g.io.add('mouseleave',e,el),
+        g.io.mselv=(e,el)=>g.io.ael('mouseleave',e,el), // special case: Event is not handled by event handler but cb is directly called.
         g.io.mseout=(e,el)=>g.io.add('mouseout',e,el),
         g.io.mseclk=(e,el)=>g.io.add('click',e,el),
 
@@ -126,8 +127,8 @@
         //-----------------------------------------------------------------
         // functions responsible for managing ui in the menus
         g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
-        // ids of all menu icons (part of the menu icon src).
-        g.ui.iconnames=['kofi','feedback','vol','controls','config','circle'],
+        // ids of all menu icons (part of the menu icon src). Divider is a special case for the divide line.
+        g.ui.iconnames=['kofi','feedback','vol','controls','config','divider','circle'],
         // all ids of icon that have a menu attached to it.
         g.ui.menunames=['controls','config'],
         // ids of input types (part of the icon src)
@@ -135,7 +136,7 @@
         // Setup elements data structure for each menu
         g.ui.iconnames.forEach(x=>(g.ui.els[x]={input:{}},g.ui.inputtypes.forEach(y=>g.ui.els[x].input[y]={tab:{all:[]}}))),
 
-        g.ui.geticon=m=>(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>g.ui.iconnames.includes(m)&&x.firstChild.src.includes(m))).length?_m[0]:null,
+        g.ui.geticon=m=>m=='divider'?g.dc[g.qs]('#menu-bar-right>.menu-bar-vertical-divider'):(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>g.ui.iconnames.includes(m)&&x.firstChild.src.includes(m))).length?_m[0]:null,
         g.ui.settinglist=_=>g.dc[g.qs]('#menu-bar-right>.settings-input-list'),
 
 
@@ -159,17 +160,23 @@
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
         // Return focus if keybind was being edited and 
-        g.ui.closemenu=_=>g.ui.currmenuicon?(g.io.log('closing menu...'),g.ui.currmenu=null,g.ui.settingfocused=!1):0,
+        g.ui.closemenu=(o,clk=!0,t=null)=>(g.io.log(o,clk,t),g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',o,g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0),
         // Handle currently active menu + add ev listeners for closing menu
         // TODO DRAW MENU
-        g.ui.handlemenu=(m,clk,icon)=>e=>(g.ui.closemenu(),g.io.log('opening menu...'),g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ib?clk?g.io.msedn(g.ui.closemenu,_ib):g.io.mseov(g.ui.closemenu,_ib):0),
+        g.ui.handlemenu=(m,clk,icon)=>async e=>(g.ui.currmenuicon!=icon||!g.ui.settingfocused&&clk)&&g.m_unlocked?(g.ui.closemenu('prev menu',!0,icon),g.io.log('opening menu...',m,clk),
+            !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
+            :(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,await g.wait(1),_ib=g.dc[g.qs]('#input-blocker'),g.io.log(_ib),_ss=g.dc[g.qs]('.settings-sidebar'),
+            _ib&&_ss?clk?g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu('clk ib',!0,icon)),_ib):(g.io.log('hover time'),g.io.mselv(e=>(g.io.log('leave settings'),g.ui.closemenu('leave settings',!1,icon)),_ss)):0)):0,
         // Add event listeners for opening menu (by click and by hover; former starts focus)
-        g.ui.menunames.forEach(m=>(e=g.ui.handlemenu,mel=g.ui.geticon(m),g.io.mseov(e(m,!1,mel),mel),g.io.msedn(e(m,!0,mel),mel))),
+        g.ui.iconnames.forEach(m=>(e=g.ui.handlemenu,mel=g.ui.geticon(m),g.io.log(mel),g.io.mseov(e(m,!1,mel),mel),g.io.msedn(e(m,!0,mel),mel))),
         // Close menu if hovered over anything else in the menubar, and the menu isn't open by focus
         // TODO FIX
         // g.ui.closeonhover=e=>g.ui.currmenuicon&&!g.ui.currmenuicon.contains(e.target)&&!g.ui.settingfocused?(g.io.log('hovered over other icon. Closing...',g.ui.currmenuicon,e.target),g.ui.closemenu()):0,
         // [...g.ui.menubar[g.qsa]('#menu-bar-left,#menu-bar-right>.menu-item,.menu-bar-vertical-divider')].forEach(el=>g.io.mseov(g.ui.closeonhover,el)),
         // g.io.mseov(e=>e.target===g.ui.menubar?g.ui.closeonhover(e):0,g.ui.menubar),
+
+        // Close menu if mouse leaves screen (and setting isn't focused)
+        g.io.mselv(_=>g.ui.closemenu('leave scrn',!1),g.evroot),
 
 
 
