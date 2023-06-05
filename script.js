@@ -146,7 +146,7 @@
         // input type is a string of one of the input types specified in `g.ui.inputtypes`
         // tab is a number starting from 1, that specifies which tab it should be added to. If it is 0 or null, it is added to all tabs.
         g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
-            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_t=_m.input[_it].tab[tab||'all'],!_t?_t=[]:0,_t.push(el))
+            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el))
             :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
 
 
@@ -161,33 +161,42 @@
         g.ui.getinputtype=s=>(_it=s[g.qs]('.settings-sidebar_option.option-selected'),_it?_it.firstChild.src.split('/media/')[1].split('.')[0]:null),
         // Get name of current tab or null if not present
         g.ui.gettab=s=>(_tab=s[g.qs]('.settings-sidebar_tab.option-selected'))?_tab.innerText:null,
-        g.ui.drawcurrent=(ss,m)=>ss?(_it=g.ui.getinputtype(ss),_tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing... it: ',_it,' tab: ',_tab,_s),_s?g.ui.draw(_s,m,_it,_tab):0):0,
+        g.ui.drawcurrent=(ss,m)=>ss?(_it=g.ui.getinputtype(ss),_tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',_it,' tab: ',_tab,_s),_s?g.ui.draw(_s,m,_it,_tab):0):0,
+        g.ui.drawmenu=m=>g.ui.drawcurrent(g.dc[g.qs]('.settings-sidebar'),m),
 
 
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
         // Return focus if keybind was being edited and close menu
-        g.ui.closemenu=(o,clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',o,g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
+        g.ui.closemenu=(clk=!0,t=null,o='')=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',o,g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
-        // Only handle if not already handled (or if )
-        g.ui.handlemenu=(m,clk,icon,fromtab=!1)=>async e=>(
+        // Only handle if not already handled
+        g.ui.handlemenu=(m,clk,icon)=>async _=>g.m_unlocked?(
             // If clicked on icon and menu is already active, toggle focus
             clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
-            g.ui.currmenuicon!=icon&&g.m_unlocked?(
-                g.ui.closemenu('prev menu',!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
+            g.ui.currmenuicon!=icon?(
+                g.ui.closemenu(!0,icon,'prev menu'),await g.wait(1),g.io.log('opening menu...',m,clk),
                 !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
                 // if current menu icon has a menu associated with it, and menu isn't already handled, activate menu
                 :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
                     // draw custom menu entries if menu exists
                     g.io.log('drawing menu...'),
-                    _ss?g.ui.drawcurrent(_ss,m):0,
+                    g.ui.drawcurrent(_ss,m),
                     // add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                     // Listeners added only on opening menu (not tab switching)
-                    _ib&&_ss&&!fromtab?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu('clk ib',!0,null)),_ib),g.io.mselv(_=>(g.io.log('hover out setting'),g.ui.closemenu('leave settings',!1,null)),_ss)):0
+                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0,null,'clk ib')),_ib),g.io.mselv(_=>(g.io.log('hover out setting'),g.ui.closemenu(!1,null,'leave settings')),_ss)):0,
+
+                    // Add event listeners for switching input types and tabs
+                    // Menu should be redrawn in that case
+                    // TODO: cancel keybind focus
+                    _it=g.dc[g.qs]('.settings-sidebar_options'),_tab=g.dc[g.qs]('.settings-sidebar_tabs'),
+                    _e=async _=>(g.ui.settingfocused=!0,await g.wait(1),g.ui.drawmenu(m)),
+                    _it?g.io.msedn(_e,_it):0,
+                    _tab?g.io.msedn(_e,_tab):0
                 ):0
             ):0,
             g.io.log('current state: ',g.ui.settingfocused)
-        ),
+        ):0,
         // Add event listeners for opening menu (by click and by hover; former starts focus)
         g.ui.iconnames.forEach(m=>(_e=g.ui.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
         // Close menu if hovered over anything else in the menubar, and the menu isn't open by focus
@@ -230,7 +239,7 @@
             g.km.aelclear(_c,_l,_i);g.km.aelbeginedit(s,_l,_i);g.km.aeledit(_i);_e[g.ap](_l,_c,_i);return _e},
         
         g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
-            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');g.io.log('creating maketoggle');
+            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');
             g.io.msedn(_=>g.ui.toggle(_t,0,e),_o1,!0);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2,!0);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
         
         g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
@@ -355,6 +364,9 @@
         g.ui.addcomponent(rt.test1,'config'),
         g.ui.addcomponent(rt.test2,'config'),
         g.ui.addcomponent(rt.test3,'config'),
+
+        rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
+        g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
 
         // Start loop roadtime
         setInterval(_=>(
