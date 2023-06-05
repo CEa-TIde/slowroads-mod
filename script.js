@@ -32,11 +32,11 @@
         // tvisels: all elements toggled by toggle keypress
         g.io={keys:[],ev:{},tvisels:[]},
         // Add an event listener to the list (type is added if not already present)
-        g.io.add=(type,cb,tgt=null)=>typeof cb!=='function'?console.error('callback specified is not a function: ',cb):(!g.io.ev[type]?g.io.ev[type]=[]:0,g.io.ev[type].push({callback:cb,target:tgt})),
+        g.io.add=(type,cb,tgt=null,persistent=false)=>typeof cb!=='function'?console.error('callback specified is not a function: ',cb):(!g.io.ev[type]?g.io.ev[type]=[]:0,g.io.ev[type].push({callback:cb,target:tgt,persistent:persistent})),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
         // If target is set, the target of the event must be equal to or child of the registered target.
         // Also checks if the targets still exist in DOM, and if not remove them from the event list (to prevent mem leak)
-        g.io.fireev=(t,e)=>(e.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.dc.contains(x.target)?_del.push(x):0,x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e)),_del.forEach(x=>g.io.ev[t].remove(x))),
+        g.io.fireev=(t,e)=>(e.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.dc.contains(x.target)&&!x.persistent?_del.push(x):0,x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e)),_del.forEach(x=>g.io.ev[t].remove(x))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
         g.io.chkpress=(t,e)=>(in__code=e.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',e)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
@@ -46,16 +46,16 @@
         // Register all event listeners to default handler
         ['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
 
-        g.io.kydn=(e,el)=>g.io.add('keydown',e,el),
-        g.io.kyup=(e,el)=>g.io.add('keyup',e,el),
-        g.io.kyprs=(e,el)=>g.io.add('keypress',e,el), // Custom event different from the built-in deprecated keypress event 
+        g.io.kydn=(e,el,p)=>g.io.add('keydown',e,el,p),
+        g.io.kyup=(e,el,p)=>g.io.add('keyup',e,el,p),
+        g.io.kyprs=(e,el,p)=>g.io.add('keypress',e,el,p), // Custom event different from the built-in deprecated keypress event 
         
-        g.io.msedn=(e,el)=>g.io.add('mousedown',e,el),
-        g.io.mseup=(e,el)=>g.io.add('mouseup',e,el),
-        g.io.mseov=(e,el)=>g.io.add('mouseover',e,el),
+        g.io.msedn=(e,el,p)=>g.io.add('mousedown',e,el,p),
+        g.io.mseup=(e,el,p)=>g.io.add('mouseup',e,el,p),
+        g.io.mseov=(e,el,p)=>g.io.add('mouseover',e,el,p),
         g.io.mselv=(e,el)=>g.io.ael('mouseleave',e,el), // special case: Event is not handled by event handler but cb is directly called.
-        g.io.mseout=(e,el)=>g.io.add('mouseout',e,el),
-        g.io.mseclk=(e,el)=>g.io.add('click',e,el),
+        g.io.mseout=(e,el,p)=>g.io.add('mouseout',e,el,p),
+        g.io.mseclk=(e,el,p)=>g.io.add('click',e,el,p),
 
         // Default log function. Should be used for debug output.
         g.io.log=console.log,
@@ -113,6 +113,7 @@
         //---------------------------------------------------------------------
         g.m_unlocked=!1,
         g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
+        // x=>x[g.qs]('settings-input-label')?.innerText==s
         g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
         g.openst=(m,s)=>(g.menulock(1),g.io.fakemseov(g.ui.geticon(m)),_o=g.getstoption(s),g.io.fakemseov(_o),_o),
         g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
@@ -132,7 +133,7 @@
         // all ids of icon that have a menu attached to it.
         g.ui.menunames=['controls','config'],
         // ids of input types (part of the icon src)
-        g.ui.inputtypes=['controls.','controls_mouse','controls_controller','all'],
+        g.ui.inputtypes=['controls','controls_mouse_icon','controls_controller','all'],
         // Setup elements data structure for each menu
         g.ui.iconnames.forEach(x=>(g.ui.els[x]={input:{}},g.ui.inputtypes.forEach(y=>g.ui.els[x].input[y]={tab:{all:[]}}))),
 
@@ -152,23 +153,43 @@
         // Draw elements to open menu
         // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: 1-indexed number indicating tab (set to null if not applicable)
         g.ui.drawcomponent=(s,el)=>s.prepend(el),
-        g.ui.drawtab=(s,it,tab)=>tab?(it.tab[tab].forEach(x=>g.ui.drawcomponent(s,x))):0,
+        g.ui.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.drawcomponent(s,x))):0,
         g.ui.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
         g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
+
+        // Get name of current input type or null if not present (name is part of the img src, file name up to the first dot)
+        g.ui.getinputtype=s=>(_it=s[g.qs]('.settings-sidebar_option.option-selected'),_it?_it.firstChild.src.split('/media/')[1].split('.')[0]:null),
+        // Get name of current tab or null if not present
+        g.ui.gettab=s=>(_tab=s[g.qs]('.settings-sidebar_tab.option-selected'))?_tab.innerText:null,
+        g.ui.drawcurrent=(ss,m)=>ss?(_it=g.ui.getinputtype(ss),_tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing... it: ',_it,' tab: ',_tab,_s),_s?g.ui.draw(_s,m,_it,_tab):0):0,
 
 
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
-        // Return focus if keybind was being edited and 
-        g.ui.closemenu=(o,clk=!0,t=null)=>(g.io.log(o,clk,t),g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',o,g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0),
+        // Return focus if keybind was being edited and close menu
+        g.ui.closemenu=(o,clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',o,g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
-        // TODO DRAW MENU
-        g.ui.handlemenu=(m,clk,icon)=>async e=>(g.ui.currmenuicon!=icon||!g.ui.settingfocused&&clk)&&g.m_unlocked?(g.ui.closemenu('prev menu',!0,icon),g.io.log('opening menu...',m,clk),
-            !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
-            :(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,await g.wait(1),_ib=g.dc[g.qs]('#input-blocker'),g.io.log(_ib),_ss=g.dc[g.qs]('.settings-sidebar'),
-            _ib&&_ss?clk?g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu('clk ib',!0,icon)),_ib):(g.io.log('hover time'),g.io.mselv(e=>(g.io.log('leave settings'),g.ui.closemenu('leave settings',!1,icon)),_ss)):0)):0,
+        // Only handle if not already handled (or if )
+        g.ui.handlemenu=(m,clk,icon,fromtab=!1)=>async e=>(
+            // If clicked on icon and menu is already active, toggle focus
+            clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
+            g.ui.currmenuicon!=icon&&g.m_unlocked?(
+                g.ui.closemenu('prev menu',!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
+                !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
+                // if current menu icon has a menu associated with it, and menu isn't already handled, activate menu
+                :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
+                    // draw custom menu entries if menu exists
+                    g.io.log('drawing menu...'),
+                    _ss?g.ui.drawcurrent(_ss,m):0,
+                    // add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
+                    // Listeners added only on opening menu (not tab switching)
+                    _ib&&_ss&&!fromtab?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu('clk ib',!0,null)),_ib),g.io.mselv(_=>(g.io.log('hover out setting'),g.ui.closemenu('leave settings',!1,null)),_ss)):0
+                ):0
+            ):0,
+            g.io.log('current state: ',g.ui.settingfocused)
+        ),
         // Add event listeners for opening menu (by click and by hover; former starts focus)
-        g.ui.iconnames.forEach(m=>(e=g.ui.handlemenu,mel=g.ui.geticon(m),g.io.log(mel),g.io.mseov(e(m,!1,mel),mel),g.io.msedn(e(m,!0,mel),mel))),
+        g.ui.iconnames.forEach(m=>(_e=g.ui.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
         // Close menu if hovered over anything else in the menubar, and the menu isn't open by focus
         // TODO FIX
         // g.ui.closeonhover=e=>g.ui.currmenuicon&&!g.ui.currmenuicon.contains(e.target)&&!g.ui.settingfocused?(g.io.log('hovered over other icon. Closing...',g.ui.currmenuicon,e.target),g.ui.closemenu()):0,
@@ -203,21 +224,21 @@
         // creation of ui components
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
         
-        g.ui.makebttn=(l,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el);return _el},
+        g.ui.makebttn=(l,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el,!0);return _el},
 
         g.ui.makekeybind=(s,l,d,tlt='')=>{var _e=g.div();_e[g.cn]=g.ui.se;var _l=g.ui.makelbl(l,tlt);var _c=g.div();_c[g.cn]='settings-input-signal-clear';_c[g.it]='x';var _i=g.div();_i[g.cn]='settings-input-signal';_i.title='Click to remap';_i[g.it]=v;
             g.km.aelclear(_c,_l,_i);g.km.aelbeginedit(s,_l,_i);g.km.aeledit(_i);_e[g.ap](_l,_c,_i);return _e},
         
         g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
-            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');
-            g.io.msedn((_=>g.ui.toggle(_t,0,e)),_o1);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
+            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');g.io.log('creating maketoggle');
+            g.io.msedn(_=>g.ui.toggle(_t,0,e),_o1,!0);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2,!0);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
         
         g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
-            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o);
-            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e);g.io.mseout(_=>g.ui.closedd(),_e);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
+            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o,!0);
+            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e,!0);g.io.mseout(_=>g.ui.closedd(),_e,!0);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
 
         g.ui.makesection=(l,els)=>{var _el=g.div();_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
-            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);return _el},
+            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el,!0);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);return _el},
         
         g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{},
         //-------------
@@ -324,6 +345,16 @@
         (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.formattime(rt.hs)}`,
         (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.formatdist(rt.hsdist)}`,
         g.ui.add(rt.ui),
+
+        // Set up setting entries
+        rt.st_resetoffroad=g.ui.maketoggle('Reset when off road','on','off',1,o=>g.io.log('Test, setting: ',o),'Enabling this will reset the vehicle when it is driven off road.'),
+        rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
+        rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
+        rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.test1,rt.test2]),
+        g.ui.addcomponent(rt.st_resetoffroad,'config'),
+        g.ui.addcomponent(rt.test1,'config'),
+        g.ui.addcomponent(rt.test2,'config'),
+        g.ui.addcomponent(rt.test3,'config'),
 
         // Start loop roadtime
         setInterval(_=>(
