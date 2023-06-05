@@ -176,12 +176,11 @@
             // If clicked on icon and menu is already active, toggle focus
             clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
             g.ui.currmenuicon!=icon?(
-                g.ui.closemenu(!0,icon,'prev menu'),await g.wait(1),g.io.log('opening menu...',m,clk),
+                g.ui.closemenu(!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
                 !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
                 // if current menu icon has a menu associated with it, and menu isn't already handled, activate menu
                 :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
                     // draw custom menu entries if menu exists
-                    g.io.log('drawing menu...'),
                     g.ui.drawcurrent(_ss,m),
                     // add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                     // Listeners added only on opening menu (not tab switching)
