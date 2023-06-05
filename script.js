@@ -337,7 +337,7 @@
 
         //------------------------------------------------------------------------------------
         // ROADTIME
-        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:0,started:!1,paused:!1,hidden:!0,saveddist:0,savedtime:0},
+        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:0,started:!1,paused:!1,hidden:!0,saveddist:0,savedtime:0,resetoffroad:!1},
         rt.hs=g.ls.get(rt.lsn_hs)||0,
         rt.hsdist=g.ls.get(rt.lsn_hsdist)||0,
 
@@ -356,7 +356,7 @@
         g.ui.add(rt.ui),
 
         // Set up setting entries
-        rt.st_resetoffroad=g.ui.maketoggle('Reset when off road','on','off',1,o=>g.io.log('Test, setting: ',o),'Enabling this will reset the vehicle when it is driven off road.'),
+        rt.st_resetoffroad=g.ui.maketoggle('Reset when off road','on','off',1,o=>rt.resetoffroad=!o,'Enabling this will reset the vehicle when it is driven off road.'),
         rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
         rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
         rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.test1,rt.test2]),
@@ -391,7 +391,9 @@
                     _fd=rt.formatdist(_dist),
                     // write output
                     rt.reset||_d>3.2||!rt.started
-                        ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?(rt.reset=0,"RESETTING... Start driving to begin the timer."):"OFF ROAD")
+                        ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?
+                            (rt.reset=0,"RESETTING... Start driving to begin the timer.")
+                            :(rt.resetoffroad?(g.io.fakekey({'code':g.ls.keybind('Reset','KeyR')},g.evroot)):0,"OFF ROAD"))
                         :(rt.tdiv[g.it]=`Time on road: ${_fs}`,rt.ddiv[g.it]=`Distance: ${_fd}`,
                         _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_fs}`,g.ls.set(rt.lsn_hs,_sc)):0,
                         _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_fd}`,g.ls.set(rt.lsn_hsdist,_dist)):0)
