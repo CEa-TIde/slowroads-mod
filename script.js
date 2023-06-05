@@ -89,7 +89,7 @@
         g.io.keyev=(t,ko={bubbles:!0})=>new KeyboardEvent(t,ko),
         g.io.mouseev=(t,ko={bubbles:!0})=>new MouseEvent(t,ko),
         // Fake keypress by pressing it for 1 ms and releasing it then
-        g.io.fakekey=async(ko,el)=>(el[g.de](g.io.keyev('keydown',ko)),el[g.de](g.io.keyev('keypress',ko)),await g.wait(1),el[g.de](g.io.keyev('keyup',ko))),
+        g.io.fakekey=async(el,ko)=>(el[g.de](g.io.keyev('keydown',ko)),el[g.de](g.io.keyev('keypress',ko)),await g.wait(1),el[g.de](g.io.keyev('keyup',ko))),
 
         g.io.fakemseev=(t,el,ko)=>el[g.de](g.io.mouseev(t,ko)),
         // Fake all mouse event types
@@ -106,6 +106,7 @@
         g.ls={ls:localStorage},
         g.ls.get=k=>JSON.parse(g.ls.ls.getItem(k)),
         g.ls.set=(k,v)=>g.ls.ls.setItem(k,JSON.stringify(v)),
+        g.ls.del=k=>g.ls.ls.removeItem(k),
         g.ls.dflt=(n,k,d)=>(g.ls.get(n)||{})[k]||d,
         g.ls.keybind=(k,d)=>g.ls.dflt('controls_keys',k,d),
         g.ls.boosttoggled=_=>g.ls.dflt('controls_keys_settings','toggleBoost',!1),
@@ -292,7 +293,7 @@
         g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.ui.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
             g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
         // Reset all keybinds to default values and delete the local storage entry
-        g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.removeItem(g.km.lsname)),
+        g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.del(g.km.lsname)),
         // Create reset button, and prepend to settings
         g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.ui.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.io.msedn(_=>g.km.reset(),_e),s.prepend(_e),_e),
         // TODO add event listeners
@@ -310,7 +311,7 @@
 
 
         //open and hide debug menus
-        g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey({"code":g.ls.keybind('ToggleDebug','F3')},g.evroot),g.uidebug.classList.add(g.hdit),g.fpscnt.classList.add(g.hdit),g.f3open=!1),
+        g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey(g.evroot,{"code":g.ls.keybind('ToggleDebug','F3')}),g.uidebug.classList.add(g.hdit),g.fpscnt.classList.add(g.hdit),g.f3open=!1),
         
         // Add proxy F3 menu key (F2)
         g.io.kydn(e=>e.code===g.km.b['Debug']?(_u=g.uidebug.classList,_f=g.fpscnt.classList,(g.f3open=!g.f3open)?(_u.remove(g.hdit),_f.remove(g.hdit)):(_u.add(g.hdit),_f.add(g.hdit))):0),
@@ -337,14 +338,15 @@
 
         //------------------------------------------------------------------------------------
         // ROADTIME
-        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:0,started:!1,paused:!1,hidden:!0,saveddist:0,savedtime:0,resetoffroad:!1},
+        rt={sd:g.D(),ds:g.dist(),lsn_hs:'modrt_hs',lsn_hsdist:'modrt_hsdist',reset:!1,started:!1,paused:!1,hidden:!0,saveddist:0,savedtime:0,resetoffroad:!1},
         rt.hs=g.ls.get(rt.lsn_hs)||0,
         rt.hsdist=g.ls.get(rt.lsn_hsdist)||0,
 
 
+        rt.resetscore=async _=>(await g.io.fakekey(g.evroot,{'code':g.ls.keybind('Reset','KeyR')}),rt.hs=0,rt.hsdist=0,g.ls.del(rt.lsn_hs),g.ls.del(rt.lsn_hsdist),rt.updatehs('time',rt.hsdiv),rt.updatehs('distance',rt.dhsdiv)),
         rt.formattime=v=>v?`${(v-=(_hh=g.fl(v/36e5))*36e5),_hh}:${(v-=(_m=g.fl(v/6e4))*6e4),('0'+_m).slice(-2)}:${('0'+g.fl(v/1e3)).slice(-2)}`:'-',
         rt.formatdist=v=>v?v.toFixed(2)+'km':'-',
-
+        rt.updatehs=(n,el,lsname,fs='-',score=0,lssync=!1)=>(el[g.it]=`Highscore ${n}: ${fs}`,lssync?g.ls.set(lsname,score):0),
         // Set up UI roadtime
         (rt.ui=g.div()).style=g.style+'left:50%;top:0;width:300px',
         // create div and add to container
@@ -357,10 +359,12 @@
 
         // Set up setting entries
         rt.st_resetoffroad=g.ui.maketoggle('Reset when off road','on','off',1,o=>rt.resetoffroad=!o,'Enabling this will reset the vehicle when it is driven off road.'),
+        rt.st_resetscore=g.ui.makebttn('Reset highscores',_=>rt.resetscore(),'Reset the highscores of time and distance on road. Be careful as this cannot be undone.'),
         rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
         rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
-        rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.test1,rt.test2]),
+        rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
         g.ui.addcomponent(rt.st_resetoffroad,'config'),
+        g.ui.addcomponent(rt.st_resetscore,'config'),
         g.ui.addcomponent(rt.test1,'config'),
         g.ui.addcomponent(rt.test2,'config'),
         g.ui.addcomponent(rt.test3,'config'),
@@ -391,12 +395,14 @@
                     _fd=rt.formatdist(_dist),
                     // write output
                     rt.reset||_d>3.2||!rt.started
-                        ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',rt.tdiv[g.it]=rt.reset||!rt.started?
-                            (rt.reset=0,"RESETTING... Start driving to begin the timer.")
-                            :(rt.resetoffroad?(g.io.fakekey({'code':g.ls.keybind('Reset','KeyR')},g.evroot)):0,"OFF ROAD"))
+                        ?(rt.sd=g.D(),rt.ds=g.dist(),rt.saveddist=0,rt.savedtime=0,rt.ddiv[g.it]='Distance: -',
+                        rt.tdiv[g.it]=rt.reset||!rt.started?
+                            (rt.reset=!1,"RESETTING... Start driving to begin the timer.")
+                            // vehicle is off road; reset vehicle if resetoffroad setting turned on
+                            :(rt.resetoffroad?(g.io.fakekey(g.evroot,{'code':g.ls.keybind('Reset','KeyR')})):0,"OFF ROAD"))
                         :(rt.tdiv[g.it]=`Time on road: ${_fs}`,rt.ddiv[g.it]=`Distance: ${_fd}`,
-                        _sc>rt.hs?(rt.hs=_sc,rt.hsdiv[g.it]=`Highscore time: ${_fs}`,g.ls.set(rt.lsn_hs,_sc)):0,
-                        _dist>rt.hsdist?(rt.hsdist=_dist,rt.dhsdiv[g.it]=`Highscore distance: ${_fd}`,g.ls.set(rt.lsn_hsdist,_dist)):0)
+                        _sc>rt.hs?(rt.hs=_sc,rt.updatehs('time',rt.hsdiv,rt.lsn_hs,_fs,_sc,!0)):0,
+                        _dist>rt.hsdist?(rt.hsdist=_dist,rt.updatehs('distance',rt.dhsdiv,rt.lsn_hsdist,_fd,_dist,!0)):0)
         ))),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
         g.io.kydn(e=>(rt.reset=e.code===g.ls.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.ls.keybind('Forward','KeyW'),g.ls.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
