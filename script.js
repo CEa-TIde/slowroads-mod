@@ -169,7 +169,7 @@
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
         // Return focus if keybind was being edited and close menu
-        g.ui.closemenu=(clk=!0,t=null,o='')=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',o,g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
+        g.ui.closemenu=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
         g.ui.handlemenu=(m,clk,icon)=>async _=>g.m_unlocked?(
@@ -185,13 +185,13 @@
                     g.ui.drawcurrent(_ss,m),
                     // add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                     // Listeners added only on opening menu (not tab switching)
-                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0,null,'clk ib')),_ib),g.io.mselv(_=>(g.io.log('hover out setting'),g.ui.closemenu(!1,null,'leave settings')),_ss)):0,
+                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0)),_ib),g.io.mselv(_=>(g.io.log('hover out setting'),g.ui.closemenu(!1)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
 
                     // Add event listeners for switching input types and tabs
                     // Menu should be redrawn in that case
                     // TODO: cancel keybind focus
                     _it=g.dc[g.qs]('.settings-sidebar_options'),_tab=g.dc[g.qs]('.settings-sidebar_tabs'),
-                    _e=async _=>(g.ui.settingfocused=!0,await g.wait(1),g.ui.drawmenu(m)),
+                    _e=async _=>(await g.wait(1),g.ui.drawmenu(m)),
                     _it?g.io.msedn(_e,_it):0,
                     _tab?g.io.msedn(_e,_tab):0
                 ):0
@@ -207,7 +207,7 @@
         // g.io.mseov(e=>e.target===g.ui.menubar?g.ui.closeonhover(e):0,g.ui.menubar),
 
         // Close menu if mouse leaves screen (and setting isn't focused)
-        g.io.mselv(_=>g.ui.closemenu('leave scrn',!1),g.evroot),
+        g.io.mselv(_=>g.ui.closemenu(!1),g.evroot),
 
 
 
