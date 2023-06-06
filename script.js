@@ -199,24 +199,34 @@
         // Set current input type based on name. Will do nothing if not present.
         g.ui.setinputtype=(s,n)=>g.inDOM(s)?(_it=g.ui.getinputel(s,n),_it?g.io.fakemsedn(_it):0):g.io.log('Setting window not in DOM. Input type cannot be set to '+n),
         // Set current tab based on name. Will do nothing if not present.
-        g.ui.settab=(s,n)=>g.inDOM(_tab=g.ui.gettabel(s,n),_tab?g.io.fakemsedn(_tab):0)?(0):g.io.log('Setting window not in DOM. Tab cannot be set to '+n),
+        g.ui.settab=(s,n)=>g.inDOM(s)?(_tab=g.ui.gettabel(s,n),_tab?g.io.fakemsedn(_tab):0):g.io.log('Setting window not in DOM. Tab cannot be set to '+n),
         
         // Lock/unlock menu bar when automatically opening menu.
         g.ui.m_unlocked=!1,
         g.ui.menulock=s=>g.ui.m_unlocked=g.dc[g.qs]('#menu-bar').style.opacity=s?0:1,
         // Stores information about the current menu lock state (menu name, settings div, input type, tab)
-        g.ui.curmlock={m:null,s:null,it:null,tab:null},
+        g.ui.curmlock={m:null,s:null,it:null},
 
         // Open a menu icon
         g.ui.openicon=m=>(_m=g.ui.geticon(m),_m?(g.io.fakemseov(_m),!0):(console.error(`Invalid menu name: ${m}`),!1)),
-        // Save current tab and input state
-        g.ui.savetabstate=(m,s=null)=>(g.ui.curmlock.m=m,s?(g.ui.curmlock.s=s,g.ui.curmlock.it=g.ui.getinputtype(s),g.ui.curmlock.tab=g.ui.gettab(s)):0),
-        // Load back tab and input
-        g.ui.loadtabstate=async _=>g.ui.curmlock.s&&g.ui.menunames.includes(m)?(_lock=g.ui.curmlock,_lock.it?(g.ui.setinputtype(s,_lock.it),await g.wait(1)):0,_lock.tab?(g.ui.settab(s,_lock.tab),await g.wait(1)):0):0,
+        // Save current input state
+        g.ui.savetabstate=(m,s=null)=>(g.ui.curmlock.m=m,s&&g.ui.menunames.includes(m)?(g.io.log('saving tabstate...'),g.ui.curmlock.s=s,g.ui.curmlock.it=g.ui.getinputtype(s)):0),
+        // Load back input state (and reset save)
+        g.ui.loadtabstate=async _=>(g.inDOM(g.ui.curmlock.s)?(g.io.log('loading tabstate...'),_lock=g.ui.curmlock,_lock.it?(g.ui.setinputtype(g.ui.curmlock.s,_lock.it),await g.wait(1)):0):g.io.log('Loading failed. Settings window not in DOM.',g.ui.curmlock.s),g.ui.curmlock={m:null,s:null,it:null}),
+
         // Automatically open the menu to the correct input type and tab
-        g.ui.openmenu=(m,it=null,tab=null)=>0,
-        // Close menu by clicking on the input blocker, or if that doesn't exist. If applicable, first revert to original tab.
-        g.ui.closemenu=/*async */_=>(/*await g.ui.loadtabstate(),*/_ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):0,g.ui.menulock(0)), // TODO if ib doesn't exist, close menu in another way
+        // If settings tab didn't open, unlock menu again.
+        // First save input type before changing tabs.
+        // returns true if menu opened successfully.
+        g.ui.openmenu=async(m,it=null,tab=null)=>(g.ui.menulock(1),_opened=g.ui.openicon(m),await g.wait(1),_s=g.dc[g.qs]('.settings-sidebar'),
+            _opened&&_s?(g.ui.savetabstate(m,_s),it?(g.ui.setinputtype(_s,it),await g.wait(1)):0,tab?(g.ui.settab(_s,tab),await g.wait(1)):0,!0):(g.menulock(0),!1)),
+
+        // Close menu by clicking on the input blocker, or if that doesn't exist, fake mouseout the icon. If applicable, first revert to original tab.
+        g.ui.closemenu=async _=>(_m=g.ui.curmlock.m,await g.ui.loadtabstate(),
+            _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(g.io.geticon(_m)),g.ui.menulock(0)),
+        
+        // Get a setting in the currently open setting menu + tab
+        g.ui.getsetting=n=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>(g.io.log(x),x[g.qs]('.settings-input-label')?.[g.it]==n))).length?_o[0]:null,
 
         // x=>x[g.qs]('settings-input-label')?.innerText==s
         g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
@@ -241,7 +251,7 @@
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
         // Return focus if keybind was being edited and close menu
-        g.ui.closemenu=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)
+        g.ui.resetmenustate=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)
             ?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
@@ -249,7 +259,7 @@
             // If clicked on icon and menu is already active, toggle focus
             clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
             g.ui.currmenuicon!=icon?(
-                g.ui.closemenu(!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
+                g.ui.resetmenustate(!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
                 !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
                 // if current menu icon has a menu associated with it, and menu isn't already handled, activate menu
                 :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
@@ -257,7 +267,7 @@
                     g.ui.drawcurrent(_ss,m),
                     // Add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                     // Add event listener for clicking in menu as that focuses the menu
-                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.closemenu(!1,e.relatedTarget)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
+                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.resetmenustate(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.resetmenustate(!1,e.relatedTarget)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
 
                     // Add event listeners for switching input types and tabs
                     // Menu should be redrawn in that case
@@ -274,7 +284,7 @@
         g.ui.iconnames.forEach(m=>(_e=g.ui.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
 
         // Close menu if mouse leaves screen (and setting isn't focused)
-        g.io.mselv(_=>g.ui.closemenu(!1),g.evroot),
+        g.io.mselv(_=>g.ui.resetmenustate(!1),g.evroot),
 
 
 
