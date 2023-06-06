@@ -241,7 +241,7 @@
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
         // Return focus if keybind was being edited and close menu
-        g.ui.closemenu=(clk=!0,t=null,e=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)&&(!e||e.type=='mouseleave'&&e.relatedTarget!=g.ui.currmenuicon)
+        g.ui.closemenu=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)
             ?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
@@ -257,7 +257,7 @@
                     g.ui.drawcurrent(_ss,m),
                     // Add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                     // Add event listener for clicking in menu as that focuses the menu
-                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.closemenu(!1,null,e)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
+                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.closemenu(!1,e.relatedTarget)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
 
                     // Add event listeners for switching input types and tabs
                     // Menu should be redrawn in that case
