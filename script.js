@@ -21,6 +21,7 @@
         // Add 'remove by value' function to Array
         Array.prototype.remove=function(el){_x=this.indexOf(el);_x!=-1?this.splice(_x,1):0;return this},
         g.css=g.dc.head[g.qs]('link[rel="stylesheet"]').sheet,
+        g.inDOM=el=>g.bd.contains(el),
 
         //-----------------------------------------------------------------
         // io handler
@@ -36,7 +37,7 @@
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
         // If target is set, the target of the event must be equal to or child of the registered target.
         // Also checks if the targets still exist in DOM, and if not remove them from the event list (to prevent mem leak)
-        g.io.fireev=(t,e)=>(e.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.dc.contains(x.target)&&!x.persistent?_del.push(x):0,x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e)),_del.forEach(x=>g.io.ev[t].remove(x))),
+        g.io.fireev=(t,e)=>(e.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.inDOM(x.target)&&!x.persistent?_del.push(x):0,x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e)),_del.forEach(x=>g.io.ev[t].remove(x))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
         g.io.chkpress=(t,e)=>(in__code=e.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',e)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
@@ -114,19 +115,6 @@
         g.ls.keybind=(k,d)=>g.ls.getwdflt('controls_keys',k,d),
         g.ls.boosttoggled=_=>g.ls.getwdflt('controls_keys_settings','toggleBoost',!1),
 
-        //---------------------------------------------------------------------
-        g.m_unlocked=!1,
-        g.menulock=s=>g.m_unlocked=g.dc[g.qs]('#menu-bar-right').style.opacity=s?0:1,
-        // x=>x[g.qs]('settings-input-label')?.innerText==s
-        g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
-        g.openst=(m,s)=>(g.menulock(1),g.io.fakemseov(g.ui.geticon(m)),_o=g.getstoption(s),g.io.fakemseov(_o),_o),
-        g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.menulock(0)),
-        // only works with dropdowns
-        // get value of setting passed in m
-        g.getst=m=>m.firstChild.nodeValue,
-        // set the value of setting passed in m
-        g.setst=(m,o)=>g.io.fakemsedn(m[g.qs]('.settings-input-enum_options').children[o]),
-
 
 
         //-----------------------------------------------------------------
@@ -162,8 +150,8 @@
         // Save state to ls
         g.ui.setlsstate=(id,v)=>g.ls.setkey(g.ui.lsn_ststates,id,v),
 
-        //-------------------
-        // get value of setting
+        //------------------------------------------------------------------------------------------------------
+        // get and set settings values
         //
 
         // check if setting is a certain type
@@ -174,9 +162,12 @@
         g.ui.isbttn=el=>el?.[g.cn].includes('input-type_bttn')||!1,
         g.ui.isslider=el=>el[g.qs]('.settings-input-range')!==null,
 
+        // Get value of first (text) node
+        // Only used for dropdown
+        g.ui.getstrval=el=>el?.firstChild.nodeValue,
         // Get value of each type of setting that allows one
         g.ui.getvaltoggle=el=>(_op=el[g.qs]('.settings-input-bool'),_v=el[g.qs]('.settings-input-bool_option.bool_selected'),_op?+(_op.lastChild===_v):null),
-        g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&x.firstChild.nodeValue==_nv.firstChild.nodeValue),
+        g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&g.ui.getstrval(x)==g.ui.getstrval(_nv)),
             _op.length&&_ops?_ops.indexOf(_op[0]):null),
         g.ui.getvalkeybind=el=>el[g.qs]('.settings-input-range_value:not(.settings-input-range-reset)')?.[g.it]||null, // will return null if keybind is being edited
         g.ui.getvalsection=el=>el[g.qs]('.collapsible-cross')[g.it]=='-', // returns true if open
@@ -190,7 +181,50 @@
             :g.ui.issection(el)?g.ui.getvalsection(el)
             :g.ui.isslider(el)?g.ui.getvalslider(el)
             :null,
-        //--------------------
+        
+
+        // get name of passed input type element from parsing the image src; file name up to the first dot
+        g.ui.getinputname=el=>el.firstChild.src.split('/media/')[1].split('.')[0],
+        // Get name of current input type or null if not present (name is part of the img src)
+        g.ui.getinputtype=s=>(_it=s[g.qs]('.settings-sidebar_option.option-selected'),_it?g.ui.getinputname(_it):null),
+        // Get name of current tab or null if not present
+        g.ui.gettab=s=>(_tab=s[g.qs]('.settings-sidebar_tab.option-selected'))?_tab[g.it]:null,
+
+        // Get element of input type with specific name (or null if not found)
+        g.ui.getinputel=(s,n)=>(_it=[...s[g.qsa]('.settings-sidebar_option')].filter(x=>g.ui.getinputname(x)===n),_it.length?_it[0]:null),
+        // Get element of tab with specific name (or null if not found)
+        g.ui.gettabel=(s,n)=>(_tab=[...s[g.qsa]('.settings-sidebar_tab')].filter(x=>x[g.it]===n),_tab.length?_tab[0]:null),
+
+
+        // Set current input type based on name. Will do nothing if not present.
+        g.ui.setinputtype=(s,n)=>g.inDOM(s)?(_it=g.ui.getinputel(s,n),_it?g.io.fakemsedn(_it):0):g.io.log('Setting window not in DOM. Input type cannot be set to '+n),
+        // Set current tab based on name. Will do nothing if not present.
+        g.ui.settab=(s,n)=>g.inDOM(_tab=g.ui.gettabel(s,n),_tab?g.io.fakemsedn(_tab):0)?(0):g.io.log('Setting window not in DOM. Tab cannot be set to '+n),
+        
+        // Lock/unlock menu bar when automatically opening menu.
+        g.ui.m_unlocked=!1,
+        g.ui.menulock=s=>g.ui.m_unlocked=g.dc[g.qs]('#menu-bar').style.opacity=s?0:1,
+        // Stores information about the current menu lock state (menu name, settings div, input type, tab)
+        g.ui.curmlock={m:null,s:null,it:null,tab:null},
+
+        // Open a menu icon
+        g.ui.openicon=m=>(_m=g.ui.geticon(m),_m?(g.io.fakemseov(_m),!0):(console.error(`Invalid menu name: ${m}`),!1)),
+        // Save current tab and input state
+        g.ui.savetabstate=(m,s=null)=>(g.ui.curmlock.m=m,s?(g.ui.curmlock.s=s,g.ui.curmlock.it=g.ui.getinputtype(s),g.ui.curmlock.tab=g.ui.gettab(s)):0),
+        // Load back tab and input
+        g.ui.loadtabstate=async _=>g.ui.curmlock.s&&g.ui.menunames.includes(m)?(_lock=g.ui.curmlock,_lock.it?(g.ui.setinputtype(s,_lock.it),await g.wait(1)):0,_lock.tab?(g.ui.settab(s,_lock.tab),await g.wait(1)):0):0,
+        // Automatically open the menu to the correct input type and tab
+        g.ui.openmenu=(m,it=null,tab=null)=>0,
+        // Close menu by clicking on the input blocker, or if that doesn't exist. If applicable, first revert to original tab.
+        g.ui.closemenu=async _=>(await g.ui.loadtabstate(),_ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):0,g.ui.menulock(0)), // TODO if ib doesn't exist, close menu in another way
+
+        // x=>x[g.qs]('settings-input-label')?.innerText==s
+        g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
+        g.openst=(m,s)=>(g.ui.menulock(1),g.io.fakemseov(g.ui.geticon(m)),_o=g.getstoption(s),g.io.fakemseov(_o),_o),
+        g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.ui.menulock(0)),
+        // set the value of setting passed in m
+        g.setst=(m,o)=>g.io.fakemsedn(m[g.qs]('.settings-input-enum_options').children[o]),
+        //-----------------------------------------------------------------------------------------------------
 
 
         // Draw elements to open menu
@@ -200,10 +234,6 @@
         g.ui.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
         g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
 
-        // Get name of current input type or null if not present (name is part of the img src, file name up to the first dot)
-        g.ui.getinputtype=s=>(_it=s[g.qs]('.settings-sidebar_option.option-selected'),_it?_it.firstChild.src.split('/media/')[1].split('.')[0]:null),
-        // Get name of current tab or null if not present
-        g.ui.gettab=s=>(_tab=s[g.qs]('.settings-sidebar_tab.option-selected'))?_tab.innerText:null,
         g.ui.drawcurrent=(ss,m)=>ss?(_it=g.ui.getinputtype(ss),_tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',_it,' tab: ',_tab,_s),_s?g.ui.draw(_s,m,_it,_tab):0):0,
         g.ui.drawmenu=m=>g.ui.drawcurrent(g.dc[g.qs]('.settings-sidebar'),m),
 
@@ -214,7 +244,7 @@
         g.ui.closemenu=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
-        g.ui.handlemenu=(m,clk,icon)=>async _=>g.m_unlocked&&(!g.ui.settingfocused||!g.ui.noclosemenu.includes(m))?(
+        g.ui.handlemenu=(m,clk,icon)=>async _=>g.ui.m_unlocked&&(!g.ui.settingfocused||!g.ui.noclosemenu.includes(m))?(
             // If clicked on icon and menu is already active, toggle focus
             clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
             g.ui.currmenuicon!=icon?(
@@ -270,7 +300,6 @@
         // creation of ui components
         //
 
-        
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
         g.ui.addelem=el=>(el.__id=g.ui.uid++,g.ui.elslst[el.__id]=el,el.__id),
         
@@ -459,14 +488,14 @@
         wd={wdst:'Drive Mode'},
 
         wd.parse=s=>s.includes('All')?0:s.includes('Front')?1:2,
-        wd.getstate=_=>(_s=wd.parse(g.getst(g.openst('config',wd.wdst))),g.exitst(),_s),
-        wd.switchstate=_=>(_s=g.getst(_x=g.openst('config',wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
+        wd.getstate=_=>(_s=wd.parse(g.ui.getstrval(g.openst('config',wd.wdst))),g.exitst(),_s),
+        wd.switchstate=_=>(_s=g.ui.getstrval(_x=g.openst('config',wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
         wd.disp=x=>!x?'AWD':x==1?'FWD':'RWD',
         wd.update=s=>wd.wddiv[g.it]=wd.disp(s),
 
         // add event listener when menu is opened
         wd.menu=g.ui.geticon('config'),
-        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&g.io.msedn(async _=>(await g.wait(10),wd.update(wd.parse(g.getst(wd.entry)))),wd.entry)):0,
+        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&g.io.msedn(async _=>(await g.wait(10),wd.update(wd.parse(g.ui.getstrval(wd.entry)))),wd.entry)):0,
         g.io.msedn(wd.updatelistener,wd.menu),
         g.io.mseov(wd.updatelistener,wd.menu),
 
