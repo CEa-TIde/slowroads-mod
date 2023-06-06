@@ -155,10 +155,40 @@
             :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
 
         
-        // Get state from ls value and update value of element to stored state
+        // Update value of element to state stored in ls (or default if not present)
         g.ui.getlsstate=(id,d)=>(_v=g.ls.getwdflt(g.ui.lsn_ststates,id,d),_v),
         // Save state to ls
         g.ui.setlsstate=(id,v)=>g.ls.setkey(g.ui.lsn_ststates,id,v),
+
+        //-------------------
+        // get value of setting
+        //
+
+        // check if setting is a certain type
+        g.ui.istoggle=el=>el[g.qs]('.settings-input-bool')!==null,
+        g.ui.isdd=el=>el[g.qs]('.settings-input-enum')!==null,
+        g.ui.iskeybind=el=>el[g.qs]('.settings-input-signal')!==null,
+        g.ui.issection=el=>el?.[g.cn].includes('settings-input-list_section')||!1,
+        g.ui.isbttn=el=>el?.[g.cn].includes('input-type_bttn')||!1,
+        g.ui.isslider=el=>el[g.qs]('.settings-input-range')!==null,
+
+        // Get value of each type of setting that allows one
+        g.ui.getvaltoggle=el=>(_op=el[g.qs]('.settings-input-bool'),_v=el[g.qs]('.settings-input-bool_option.bool_selected'),_op?+(_op.lastChild===_v):null),
+        g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&x.firstChild.nodeValue==_nv.firstChild.nodeValue),
+            _op.length&&_ops?_ops.indexOf(_op[0]):null),
+        g.ui.getvalkeybind=el=>el[g.qs]('.settings-input-range_value:not(.settings-input-range-reset)')?.[g.it]||null, // will return null if keybind is being edited
+        g.ui.getvalsection=el=>el[g.qs]('.collapsible-cross')[g.it]=='-', // returns true if open
+        g.ui.getvalslider=el=>el[g.qs]('.settings-input-range_value')[g.it],
+
+        // Get value of an element (if applicable), or return null otherwise
+        g.ui.getvalue=el=>
+            g.ui.istoggle(el)?g.ui.getvaltoggle(el)
+            :g.ui.isdd(el)?g.ui.getvaldd(el)
+            :g.ui.iskeybind(el)?g.ui.getvalkeybind(el)
+            :g.ui.issection(el)?g.ui.getvalsection(el)
+            :g.ui.isslider(el)?g.ui.getvalslider(el)
+            :null,
+        //--------------------
 
 
         // Draw elements to open menu
@@ -242,31 +272,6 @@
         //------------
         // creation of ui components
         //
-        
-        // check if setting is a certain type
-        g.ui.istoggle=el=>el[g.qs]('.settings-input-bool')!==null,
-        g.ui.isdd=el=>el[g.qs]('.settings-input-enum')!==null,
-        g.ui.iskeybind=el=>el[g.qs]('.settings-input-signal')!==null,
-        g.ui.issection=el=>el?.[g.cn].includes('settings-input-list_section')||!1,
-        g.ui.isbttn=el=>el?.[g.cn].includes('input-type_bttn')||!1,
-        g.ui.isslider=el=>false, // TODO
-
-        // Get value of each type of setting that allows one
-        g.ui.getvaltoggle=el=>(_op=el[g.qs]('.settings-input-bool'),_v=el[g.qs]('.settings-input-bool_option.bool_selected'),_op?+(_op.lastChild===_v):null),
-        g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&x.firstChild.nodeValue==_nv.firstChild.nodeValue),
-            _op.length&&_ops?_ops.indexOf(_op[0]):null),
-        g.ui.getvalkeybind=el=>null, // TODO
-        g.ui.getvalsection=el=>el[g.qs]('collapsible-cross')[g.it]=='-', // returns true if open
-        g.ui.getvalslider=el=>null, // TODO
-
-        // Get value of an element (if applicable), or return null otherwise
-        g.ui.getvalue=el=>
-            g.ui.istoggle(el)?g.ui.getvaltoggle(el)
-            :g.ui.isdd(el)?g.ui.getvaldd(el)
-            :g.ui.iskeybind(el)?g.ui.getvalkeybind(el)
-            :g.ui.issection(el)?g.ui.getvalsection(el)
-            :g.ui.isslider(el)?g.ui.getvalslider(el)
-            :null,
 
         
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
