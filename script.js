@@ -107,9 +107,12 @@
         g.ls.get=k=>JSON.parse(g.ls.ls.getItem(k)),
         g.ls.set=(k,v)=>g.ls.ls.setItem(k,JSON.stringify(v)),
         g.ls.del=k=>g.ls.ls.removeItem(k),
-        g.ls.dflt=(n,k,d)=>(g.ls.get(n)||{})[k]||d,
-        g.ls.keybind=(k,d)=>g.ls.dflt('controls_keys',k,d),
-        g.ls.boosttoggled=_=>g.ls.dflt('controls_keys_settings','toggleBoost',!1),
+        // Get value from key object in ls, or default if doesn't exist. Should only be used for objects containing keys, not single-value variables; use g.ls.get then instead.
+        g.ls.getwdflt=(n,k,d)=>(_v=(g.ls.get(n)||{})[k])!==undefined?_v:d,
+        // Set value of  key object in ls. Object is created if it didn't exist yet.
+        g.ls.setkey=(n,k,v)=>(_s=g.ls.get(n)||{},_s[k]=v,g.ls.set(n,_s)),
+        g.ls.keybind=(k,d)=>g.ls.getwdflt('controls_keys',k,d),
+        g.ls.boosttoggled=_=>g.ls.getwdflt('controls_keys_settings','toggleBoost',!1),
 
         //---------------------------------------------------------------------
         g.m_unlocked=!1,
@@ -128,7 +131,7 @@
 
         //-----------------------------------------------------------------
         // functions responsible for managing ui in the menus
-        g.ui={f:null,els:{},se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
+        g.ui={f:null,elslst:{},els:{},uid:0,lsn_ststates:'mod_ststates',se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
         // ids of all menu icons (part of the menu icon src). Divider is a special case for the divide line.
         g.ui.iconnames=['kofi','feedback','vol','controls','config','divider','circle'],
         // all ids of icon that have a menu attached to it.
@@ -146,15 +149,22 @@
         // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
         // input type is a string of one of the input types specified in `g.ui.inputtypes`
         // tab is a number starting from 1, that specifies which tab it should be added to. If it is 0 or null, it is added to all tabs.
+        // Each element is also assigned a UID so that the state can be loaded from/saved in localstorage. It is incremented with each added element. Only this id is stored in this structure, so that it can be added to multiple tabs.
         g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
-            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el))
+            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
             :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
+
+        
+        // Get state from ls value and update value of element to stored state
+        g.ui.getlsstate=(id,d)=>(_v=g.ls.getwdflt(g.ui.lsn_ststates,id,d),_v),
+        // Save state to ls
+        g.ui.setlsstate=(id,v)=>g.ls.setkey(g.ui.lsn_ststates,id,v),
 
 
         // Draw elements to open menu
         // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: 1-indexed number indicating tab (set to null if not applicable)
         g.ui.drawcomponent=(s,el)=>s.prepend(el),
-        g.ui.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.drawcomponent(s,x))):0,
+        g.ui.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.drawcomponent(s,g.ui.elslst[x]))):0,
         g.ui.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
         g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
 
@@ -231,25 +241,59 @@
 
         //------------
         // creation of ui components
-        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
+        //
         
-        g.ui.makebttn=(l,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el,!0);return _el},
+        // check if setting is a certain type
+        g.ui.istoggle=el=>el[g.qs]('.settings-input-bool')!==null,
+        g.ui.isdd=el=>el[g.qs]('.settings-input-enum')!==null,
+        g.ui.iskeybind=el=>el[g.qs]('.settings-input-signal')!==null,
+        g.ui.issection=el=>el?.[g.cn].includes('settings-input-list_section')||!1,
+        g.ui.isbttn=el=>el?.[g.cn].includes('input-type_bttn')||!1,
+        g.ui.isslider=el=>false, // TODO
 
-        g.ui.makekeybind=(s,l,d,tlt='')=>{var _e=g.div();_e[g.cn]=g.ui.se;var _l=g.ui.makelbl(l,tlt);var _c=g.div();_c[g.cn]='settings-input-signal-clear';_c[g.it]='x';var _i=g.div();_i[g.cn]='settings-input-signal';_i.title='Click to remap';_i[g.it]=v;
+        // Get value of each type of setting that allows one
+        g.ui.getvaltoggle=el=>(_op=el[g.qs]('.settings-input-bool'),_v=el[g.qs]('.settings-input-bool_option.bool_selected'),_op?+(_op.lastChild===_v):null),
+        g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&x.firstChild.nodeValue==_nv.firstChild.nodeValue),
+            _op.length&&_ops?_ops.indexOf(_op[0]):null),
+        g.ui.getvalkeybind=el=>null, // TODO
+        g.ui.getvalsection=el=>el[g.qs]('collapsible-cross')[g.it]=='-', // returns true if open
+        g.ui.getvalslider=el=>null, // TODO
+
+        // Get value of an element (if applicable), or return null otherwise
+        g.ui.getvalue=el=>
+            g.ui.istoggle(el)?g.ui.getvaltoggle(el)
+            :g.ui.isdd(el)?g.ui.getvaldd(el)
+            :g.ui.iskeybind(el)?g.ui.getvalkeybind(el)
+            :g.ui.issection(el)?g.ui.getvalsection(el)
+            :g.ui.isslider(el)?g.ui.getvalslider(el)
+            :null,
+
+        
+        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
+        g.ui.addelem=el=>(el.__id=g.ui.uid++,g.ui.elslst[el.__id]=el,el.__id),
+        
+
+        g.ui.cb=(el,e,ev)=>(e(ev),(_v=g.ui.getvalue(el))!==null?g.ui.setlsstate(el.__id,_v):0),
+        
+        g.ui.makebttn=(l,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el,!0);return _el},
+
+        g.ui.makekeybind=(s,l,d,tlt='')=>{var _e=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_e[g.cn]=g.ui.se;var _l=g.ui.makelbl(l,tlt);var _c=g.div();_c[g.cn]='settings-input-signal-clear';_c[g.it]='x';
+            var _i=g.div();_i[g.cn]='settings-input-signal';_i.title='Click to remap';_i[g.it]=v;
             g.km.aelclear(_c,_l,_i);g.km.aelbeginedit(s,_l,_i);g.km.aeledit(_i);_e[g.ap](_l,_c,_i);return _e},
         
-        g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
-            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(d?_o2:_o1).classList.add('bool_selected');
-            g.io.msedn(_=>g.ui.toggle(_t,0,e),_o1,!0);g.io.msedn(_=>g.ui.toggle(_t,1,e),_o2,!0);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
+        g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
+            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(_dflt?_o2:_o1).classList.add('bool_selected');
+            g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,0,e)),_o1,!0);g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,1,e)),_o2,!0);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
         
-        g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[d];
-            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(e1=>g.ui.ddselect(_e,e1.target,e),_o,!0);
+        g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[_dflt];
+            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(ev=>g.ui.cb(_el,e1=>g.ui.ddselect(_e,e1.target,e),ev),_o,!0);
             var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e,!0);g.io.mseout(_=>g.ui.closedd(),_e,!0);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
 
-        g.ui.makesection=(l,els)=>{var _el=g.div();_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
-            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el,!0);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);return _el},
+        g.ui.makesection=(l,els,d=!0)=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';
+            var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
+            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el,!0);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);!_dflt?gg.ui.collapse(_el,_c):0;return _el},
         
-        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{},
+        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{var _el=g.div();g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);return _el},
         //-------------
 
         // add styling ui
