@@ -216,7 +216,7 @@
         // Automatically open the menu to the correct input type and tab
         g.ui.openmenu=(m,it=null,tab=null)=>0,
         // Close menu by clicking on the input blocker, or if that doesn't exist. If applicable, first revert to original tab.
-        g.ui.closemenu=async _=>(await g.ui.loadtabstate(),_ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):0,g.ui.menulock(0)), // TODO if ib doesn't exist, close menu in another way
+        g.ui.closemenu=/*async */_=>(/*await g.ui.loadtabstate(),*/_ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):0,g.ui.menulock(0)), // TODO if ib doesn't exist, close menu in another way
 
         // x=>x[g.qs]('settings-input-label')?.innerText==s
         g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
@@ -241,7 +241,8 @@
         g.ui.settingfocused=!1,
         g.ui.currmenuicon=null,
         // Return focus if keybind was being edited and close menu
-        g.ui.closemenu=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
+        g.ui.closemenu=(clk=!0,t=null,e=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)&&(!e||e.type=='mouseleave'&&e.relatedTarget!=g.ui.currmenuicon)
+            ?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
         g.ui.handlemenu=(m,clk,icon)=>async _=>g.ui.m_unlocked&&(!g.ui.settingfocused||!g.ui.noclosemenu.includes(m))?(
@@ -254,9 +255,9 @@
                 :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
                     // draw custom menu entries if menu exists
                     g.ui.drawcurrent(_ss,m),
-                    // add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
-                    // Listeners added only on opening menu (not tab switching)
-                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0)),_ib),g.io.mselv(_=>(g.io.log('hover out setting'),g.ui.closemenu(!1)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
+                    // Add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
+                    // Add event listener for clicking in menu as that focuses the menu
+                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.closemenu(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.closemenu(!1,null,e)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
 
                     // Add event listeners for switching input types and tabs
                     // Menu should be redrawn in that case
