@@ -136,6 +136,8 @@
         g.ui.iconnames=['kofi','feedback','vol','controls','config','divider','circle'],
         // all ids of icon that have a menu attached to it.
         g.ui.menunames=['controls','config'],
+        // All icons that don't close the current menu when hovered over (because they don't have one of their own)
+        g.ui.noclosemenu=['kofi','divider','circle'],
         // ids of input types (part of the icon src)
         g.ui.inputtypes=['controls','controls_mouse_icon','controls_controller','all'],
         // Setup elements data structure for each menu
@@ -212,7 +214,7 @@
         g.ui.closemenu=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
-        g.ui.handlemenu=(m,clk,icon)=>async _=>g.m_unlocked?(
+        g.ui.handlemenu=(m,clk,icon)=>async _=>g.m_unlocked&&(!g.ui.settingfocused||!g.ui.noclosemenu.includes(m))?(
             // If clicked on icon and menu is already active, toggle focus
             clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
             g.ui.currmenuicon!=icon?(
@@ -239,8 +241,6 @@
         ):0,
         // Add event listeners for opening menu (by click and by hover; former starts focus)
         g.ui.iconnames.forEach(m=>(_e=g.ui.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
-        
-        // TODO ADD listener when hovering/clicking on menu bar itself (not the icons)
 
         // Close menu if mouse leaves screen (and setting isn't focused)
         g.io.mselv(_=>g.ui.closemenu(!1),g.evroot),
