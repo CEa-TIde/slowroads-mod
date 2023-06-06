@@ -181,7 +181,7 @@
         g.ui.getvalslider=el=>el[g.qs]('.settings-input-range_value')[g.it],
 
         // Get value of an element (if applicable), or return null otherwise
-        g.ui.getvalue=el=>
+        g.ui.getvalue=el=>!el?null:
             g.ui.istoggle(el)?g.ui.getvaltoggle(el)
             :g.ui.isdd(el)?g.ui.getvaldd(el)
             :g.ui.iskeybind(el)?g.ui.getvalkeybind(el)
@@ -239,11 +239,8 @@
         ):0,
         // Add event listeners for opening menu (by click and by hover; former starts focus)
         g.ui.iconnames.forEach(m=>(_e=g.ui.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
-        // Close menu if hovered over anything else in the menubar, and the menu isn't open by focus
-        // TODO FIX
-        // g.ui.closeonhover=e=>g.ui.currmenuicon&&!g.ui.currmenuicon.contains(e.target)&&!g.ui.settingfocused?(g.io.log('hovered over other icon. Closing...',g.ui.currmenuicon,e.target),g.ui.closemenu()):0,
-        // [...g.ui.menubar[g.qsa]('#menu-bar-left,#menu-bar-right>.menu-item,.menu-bar-vertical-divider')].forEach(el=>g.io.mseov(g.ui.closeonhover,el)),
-        // g.io.mseov(e=>e.target===g.ui.menubar?g.ui.closeonhover(e):0,g.ui.menubar),
+        
+        // TODO ADD listener when hovering/clicking on menu bar itself (not the icons)
 
         // Close menu if mouse leaves screen (and setting isn't focused)
         g.io.mselv(_=>g.ui.closemenu(!1),g.evroot),
