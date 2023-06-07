@@ -234,57 +234,59 @@
         g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.ui.menulock(0)),
         // set the value of setting passed in m
         g.setst=(m,o)=>g.io.fakemsedn(m[g.qs]('.settings-input-enum_options').children[o]),
+
+        
         //-----------------------------------------------------------------------------------------------------
-
-
+        // Handles drawing ui to menu when open, and menu states
+        g.ui.out={settingfocused:!1,currmenuicon:null},
         // Draw elements to open menu
         // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: 1-indexed number indicating tab (set to null if not applicable)
-        g.ui.drawcomponent=(s,el)=>s.prepend(el),
-        g.ui.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.drawcomponent(s,g.ui.elslst[x]))):0,
-        g.ui.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.drawtab(s,_it,tab),g.ui.drawtab(s,_it,'all')):0,
-        g.ui.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.drawinput(s,_m,it,tab),g.ui.drawinput(s,_m,'all',tab)),
+        g.ui.out.drawcomponent=(s,el)=>s.prepend(el),
+        g.ui.out.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x]))):0,
+        g.ui.out.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.out.drawtab(s,_it,tab),g.ui.out.drawtab(s,_it,'all')):0,
+        g.ui.out.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.out.drawinput(s,_m,it,tab),g.ui.out.drawinput(s,_m,'all',tab)),
 
-        g.ui.drawcurrent=(ss,m)=>ss?(_it=g.ui.getinputtype(ss),_tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',_it,' tab: ',_tab,_s),_s?g.ui.draw(_s,m,_it,_tab):0):0,
-        g.ui.drawmenu=m=>g.ui.drawcurrent(g.dc[g.qs]('.settings-sidebar'),m),
+        g.ui.out.drawcurrent=(ss,m)=>ss?(_it=g.ui.getinputtype(ss),_tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',_it,' tab: ',_tab,_s),_s?g.ui.out.draw(_s,m,_it,_tab):0):0,
+        g.ui.out.drawmenu=m=>g.ui.out.drawcurrent(g.dc[g.qs]('.settings-sidebar'),m),
 
-
-        g.ui.settingfocused=!1,
-        g.ui.currmenuicon=null,
+        g.ui.out.resetstate=_=>(g.ui.out.settingfocused=!1,g.ui.out.currmenuicon=null),
         // Return focus if keybind was being edited and close menu
-        g.ui.resetmenustate=(clk=!0,t=null)=>g.ui.currmenuicon&&(!t||g.ui.currmenuicon!=t)&&(clk||!g.ui.settingfocused)
-            ?(g.io.log('closing menu...',g.ui.currmenuicon,t),g.ui.currmenuicon=null,g.ui.settingfocused=!1):0,
+        g.ui.out.resetmenu=(clk=!0,t=null)=>g.ui.out.currmenuicon&&(!t||g.ui.out.currmenuicon!=t)&&(clk||!g.ui.out.settingfocused)
+            ?(g.io.log('closing menu...',g.ui.out.currmenuicon,t),g.ui.out.resetstate()):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
-        g.ui.handlemenu=(m,clk,icon)=>async _=>g.ui.m_unlocked&&(!g.ui.settingfocused||!g.ui.noclosemenu.includes(m))?(
+        g.ui.out.handlemenu=(m,clk,icon)=>async _=>g.ui.m_unlocked&&(!g.ui.out.settingfocused||!g.ui.noclosemenu.includes(m))?(
             // If clicked on icon and menu is already active, toggle focus
-            clk&&g.ui.currmenuicon==icon?g.ui.settingfocused=!g.ui.settingfocused:0,
-            g.ui.currmenuicon!=icon?(
-                g.ui.resetmenustate(!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
-                !g.ui.menunames.includes(m)?(g.ui.currmenuicon=null,g.ui.settingfocused=!1)
+            clk&&g.ui.out.currmenuicon==icon?g.ui.out.settingfocused=!g.ui.out.settingfocused:0,
+            g.ui.out.currmenuicon!=icon?(
+                g.ui.out.resetmenu(!0,icon),await g.wait(1),g.io.log('opening menu...',m,clk),
+                !g.ui.menunames.includes(m)?(g.ui.out.resetstate())
                 // if current menu icon has a menu associated with it, and menu isn't already handled, activate menu
-                :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.currmenuicon=icon,g.ui.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
+                :!g.dc[g.qs]('.settings-input-row.mod-entry')?(g.ui.out.currmenuicon=icon,g.ui.out.settingfocused=clk,_ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
                     // draw custom menu entries if menu exists
-                    g.ui.drawcurrent(_ss,m),
+                    g.ui.out.drawcurrent(_ss,m),
                     // Add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                     // Add event listener for clicking in menu as that focuses the menu
-                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.resetmenustate(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.resetmenustate(!1,e.relatedTarget)),_ss),g.io.msedn(_=>g.ui.settingfocused=!0,_ss)):0,
+                    _ib&&_ss?(g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.out.resetmenu(!0)),_ib),g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.out.resetmenu(!1,e.relatedTarget)),_ss),g.io.msedn(_=>g.ui.out.settingfocused=!0,_ss)):0,
 
                     // Add event listeners for switching input types and tabs
                     // Menu should be redrawn in that case
                     // TODO: cancel keybind focus
                     _it=g.dc[g.qs]('.settings-sidebar_options'),_tab=g.dc[g.qs]('.settings-sidebar_tabs'),
-                    _e=async _=>(await g.wait(1),g.ui.drawmenu(m)),
+                    _e=async _=>(await g.wait(1),g.ui.out.drawmenu(m)),
                     _it?g.io.msedn(_e,_it):0,
                     _tab?g.io.msedn(_e,_tab):0
                 ):0
             ):0,
-            g.io.log('current state: ',g.ui.settingfocused)
+            g.io.log('current state: ',g.ui.out.settingfocused)
         ):0,
         // Add event listeners for opening menu (by click and by hover; former starts focus)
-        g.ui.iconnames.forEach(m=>(_e=g.ui.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
+        g.ui.iconnames.forEach(m=>(_e=g.ui.out.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
 
         // Close menu if mouse leaves screen (and setting isn't focused)
-        g.io.mselv(_=>g.ui.resetmenustate(!1),g.evroot),
+        g.io.mselv(_=>g.ui.out.resetmenu(!1),g.evroot),
+
+        //------------------------------------------------------------------------------------------------------
 
 
 
