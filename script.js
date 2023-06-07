@@ -137,8 +137,8 @@
 
         // Add component to menu under a(n optional) input type in a(n optional) tab. 
         // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
-        // input type is a string of one of the input types specified in `g.ui.inputtypes`
-        // tab is a number starting from 1, that specifies which tab it should be added to. If it is 0 or null, it is added to all tabs.
+        // input type is a string of one of the input types specified in `g.ui.inputtypes`. If it is null, it is added to all input types.
+        // tab is the name that specifies which tab it should be added to. If it is null, it is added to all tabs.
         // Each element is also assigned a UID so that the state can be loaded from/saved in localstorage. It is incremented with each added element. Only this id is stored in this structure, so that it can be added to multiple tabs.
         g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
             (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
@@ -146,7 +146,7 @@
 
         
         // Update value of element to state stored in ls (or default if not present)
-        g.ui.getlsstate=(id,d)=>(_v=g.ls.getwdflt(g.ui.lsn_ststates,id,d),_v),
+        g.ui.getlsstate=(id,d)=>g.ls.getwdflt(g.ui.lsn_ststates,id,d),
         // Save state to ls
         g.ui.setlsstate=(id,v)=>g.ls.setkey(g.ui.lsn_ststates,id,v),
 
@@ -167,20 +167,40 @@
         g.ui.getstrval=el=>el?.firstChild.nodeValue,
         // Get value of each type of setting that allows one
         g.ui.getvaltoggle=el=>(_op=el[g.qs]('.settings-input-bool'),_v=el[g.qs]('.settings-input-bool_option.bool_selected'),_op?+(_op.lastChild===_v):null),
-        g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&g.ui.getstrval(x)==g.ui.getstrval(_nv)),
-            _op.length&&_ops?_ops.indexOf(_op[0]):null),
+        // DOESN"T WORK: mouseover needed to open options. Instead return string value instead and let the caller figure out the index if needed.
+        // g.ui.getvaldd=el=>(_nv=el[g.qs]('.settings-input-enum'),_ops=[...el[g.qsa]('.settings-input-enum_option')],_op=_ops.filter(x=>_nv!==null&&g.ui.getstrval(x)==g.ui.getstrval(_nv)),g.io.log(_nv,_ops,_op),
+        //     _op.length&&_ops?_ops.indexOf(_op[0]):null),
+        g.ui.getvaldd=el=>g.ui.getstrval(el[g.qs]('.settings-input-enum')),
         g.ui.getvalkeybind=el=>el[g.qs]('.settings-input-range_value:not(.settings-input-range-reset)')?.[g.it]||null, // will return null if keybind is being edited
         g.ui.getvalsection=el=>el[g.qs]('.collapsible-cross')[g.it]=='-', // returns true if open
         g.ui.getvalslider=el=>el[g.qs]('.settings-input-range_value')[g.it],
 
         // Get value of an element (if applicable), or return null otherwise
-        g.ui.getvalue=el=>!el?null:
-            g.ui.istoggle(el)?g.ui.getvaltoggle(el)
+        g.ui.getvalue=el=>!el?(g.io.log('Element is null. Could not get value',el),null)
+            :g.ui.istoggle(el)?g.ui.getvaltoggle(el)
             :g.ui.isdd(el)?g.ui.getvaldd(el)
             :g.ui.iskeybind(el)?g.ui.getvalkeybind(el)
             :g.ui.issection(el)?g.ui.getvalsection(el)
             :g.ui.isslider(el)?g.ui.getvalslider(el)
             :null,
+        
+
+        // Set value of each type of setting that allows one
+        g.ui.setvaltoggle=(el,v)=>(_ops=el[g.qsa]('.settings-input-bool_option'),_ops.length>1?g.io.fakemsedn(_ops[v]):0),
+        // v is index of option to be selected
+        g.ui.setvaldd=async(el,v)=>(_dd=el[g.qs]('.settings-input-enum'),g.io.fakemseov(_dd),await g.wait(1),_ops=el[g.qs]('.settings-input-enum_options'),_ops?(g.io.fakemsedn(_ops.children[v]),g.io.fakemseout(_ops),await g.wait(1)):0),
+        g.ui.setvalkeybind=(el,v)=>0, //TODO
+        g.ui.setvalsection=(el,v)=>(_open=el[g.qs]('collapsible-cross')[g.it]=='-',_open!=v?g.io.fakemsedn(el):0), // 1 is open, 0 is closed
+        g.ui.setvalslider=(el,v)=>0,//TODO
+
+        // Set value of an element (if applicable)
+        g.ui.setvalue=async(el,v)=>await(!el||!g.inDOM(el)?(g.io.log('Element is null or not in DOM. Could not set value.',el,v),null):
+            g.ui.istoggle(el)?g.ui.setvaltoggle(el,v)
+            :g.ui.isdd(el)?g.ui.setvaldd(el,v)
+            :g.ui.iskeybind(el)?g.ui.setvalkeybind(el,v)
+            :g.ui.issection(el)?g.ui.setvalsection(el,v)
+            :g.ui.isslider(el)?g.ui.setvalslider(el,v)
+            :null),
         
 
         // get name of passed input type element from parsing the image src; file name up to the first dot
@@ -214,36 +234,34 @@
         // Load back input state (and reset save)
         g.ui.loadtabstate=async _=>(g.inDOM(g.ui.curmlock.ss)?
             (g.io.log('loading tabstate...'),_lock=g.ui.curmlock,_lock.it?(g.ui.setinputtype(_lock.ss,_lock.it),await g.wait(1)):0)
-            :g.io.log('Loading failed. Settings window not in DOM.',_lock.ss),
+            :g.io.log('Loading failed. Settings window not in DOM.',g.ui.curmlock.ss),
             g.ui.curmlock={m:null,ss:null,it:null}),
 
         // Automatically open the menu to the correct input type and tab
         // If settings tab didn't open, unlock menu again.
         // First save input type before changing tabs.
         // returns true if menu opened successfully.
-        g.ui.openmenu=async(m,it=null,tab=null)=>(g.ui.menulock(1),_opened=g.ui.openicon(m),await g.wait(1),_ss=g.dc[g.qs]('.settings-sidebar'),
-            _opened&&_s?(g.ui.savetabstate(m,_ss),it?(g.ui.setinputtype(_ss,it),await g.wait(1)):0,tab?(g.ui.settab(_ss,tab),await g.wait(1)):0,!0):(g.menulock(0),!1)),
+        g.ui.openmenu=async(m,it=null,tab=null)=>(g.ui.out.resetmenu(),g.ui.menulock(1),_opened=g.ui.openicon(m),await g.wait(1),_ss=g.dc[g.qs]('.settings-sidebar'),
+            _opened&&_ss?(g.ui.savetabstate(m,_ss),it?(g.ui.setinputtype(_ss,it),await g.wait(1)):0,tab?g.ui.settab(_ss,tab):0,await g.wait(1),!0):(g.ui.menulock(0),!1)),
 
         // Close menu by clicking on the input blocker, or if that doesn't exist, fake mouseout the icon. If applicable, first revert to original tab.
         g.ui.closemenu=async _=>(_m=g.ui.curmlock.m,await g.ui.loadtabstate(),
             _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(g.io.geticon(_m)),g.ui.menulock(0)),
-        
-        // Get a setting in the currently open setting menu + tab
-        g.ui.getsetting=n=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>(g.io.log(x),x[g.qs]('.settings-input-label')?.[g.it]==n))).length?_o[0]:null,
 
-        // x=>x[g.qs]('settings-input-label')?.innerText==s
-        g.getstoption=s=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(x=>x.children[0][g.it]==s)).length?_o[0].children[1]:null,
-        g.openst=(m,s)=>(g.ui.menulock(1),g.io.fakemseov(g.ui.geticon(m)),_o=g.getstoption(s),g.io.fakemseov(_o),_o),
-        g.exitst=_=>(g.io.fakemsedn(g.dc[g.qs]('#input-blocker')),g.ui.menulock(0)),
-        // set the value of setting passed in m
-        g.setst=(m,o)=>g.io.fakemsedn(m[g.qs]('.settings-input-enum_options').children[o]),
+        // Open menu, manipulate settings as set by callback function, close menu
+        g.ui.changemenu=async (e,m,it=null,tab=null)=>{var _open=await g.ui.openmenu(m,it,tab);if(_open){var _v=await e();await g.ui.closemenu();return _v}return null},
+        
+        // Get a setting in the currently open setting menu + input type + tab (sections can also be selected)
+        g.ui.getsetting=n=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(
+            x=>(x[g.cn].includes('collapsible')?x[g.qs]('.collapsible-title')?.[g.it].toLowerCase()==n.toLowerCase():x[g.qs]('.settings-input-label')?.[g.it].toLowerCase()==n.toLowerCase())
+        )).length?_o[0]:null,
 
         
         //-----------------------------------------------------------------------------------------------------
         // Handles drawing ui to menu when open, and menu states
         g.ui.out={menu:{m:null,icon:null,focus:!1,it:null,tab:null},callbacks:[]},
         // Draw elements to open menu
-        // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: 1-indexed number indicating tab (set to null if not applicable)
+        // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: name of tab (set to null if not applicable)
         g.ui.out.drawcomponent=(s,el)=>s.prepend(el),
         g.ui.out.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x]))):0,
         g.ui.out.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.out.drawtab(s,_it,tab),g.ui.out.drawtab(s,_it,'all')):0,
@@ -348,7 +366,8 @@
             var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(_dflt?_o2:_o1).classList.add('bool_selected');
             g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,0,e)),_o1,!0);g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,1,e)),_o2,!0);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
         
-        g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=o[_dflt];
+        g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,o[d]);!o.includes(_dflt)?_dflt=o[d]:0;
+            _el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=_dflt;
             var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(ev=>g.ui.cb(_el,e1=>g.ui.ddselect(_e,e1.target,e),ev),_o,!0);
             var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e,!0);g.io.mseout(_=>g.ui.closedd(),_e,!0);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
 
@@ -517,30 +536,31 @@
 
         //---------------------------------------------------------------------------------
         // WHEEL DRIVE SWITCHER
-        wd={wdst:'Drive Mode'},
+        wd={wdst:'Drive Mode',menu:'config'},
 
-        wd.parse=s=>s.includes('All')?0:s.includes('Front')?1:2,
-        wd.getstate=_=>(_s=wd.parse(g.ui.getstrval(g.openst('config',wd.wdst))),g.exitst(),_s),
-        wd.switchstate=_=>(_s=g.ui.getstrval(_x=g.openst('config',wd.wdst)),g.setst(_x,_v=_s.includes('All')?1:0),g.exitst(),_v),
+        wd.getstate=async _=>await g.ui.changemenu(_=>wd.parse(g.ui.getvalue(g.ui.getsetting(wd.wdst))),wd.menu),
+        wd.switchstate=async _=>await g.ui.changemenu(async _=>{var _s=g.ui.getsetting(wd.wdst);var _v=wd.parse(g.ui.getvalue(_s))?0:1;await g.ui.setvalue(_s,_v);return _v},wd.menu),
+        wd.parse=v=>v.includes('All')?0:v.includes('Front')?1:2,
         wd.disp=x=>!x?'AWD':x==1?'FWD':'RWD',
-        wd.update=s=>wd.wddiv[g.it]=wd.disp(s),
+        wd.update=v=>(wd.wddiv[g.it]=wd.disp(v),g.io.log('Updated! ',v,wd.disp(v))),
 
         // add event listener when menu is opened
-        wd.menu=g.ui.geticon('config'),
-        wd.updatelistener=async _=>g.m_unlocked?(await g.wait(100),(wd.entry=g.getstoption(wd.wdst))&&g.io.msedn(async _=>(await g.wait(10),wd.update(wd.parse(g.ui.getstrval(wd.entry)))),wd.entry)):0,
-        g.io.msedn(wd.updatelistener,wd.menu),
-        g.io.mseov(wd.updatelistener,wd.menu),
+        wd.updatelistener=async _=>g.ui.m_unlocked?(
+            wd.entry=g.ui.getsetting(wd.wdst),
+            wd.entry&&g.io.msedn(async _=>(g.io.log('Wheel drive changed! Syncing...',wd.entry,g.ui.getvalue(wd.entry)),await g.wait(1),wd.update(wd.parse(g.ui.getvalue(wd.entry)))),wd.entry)
+        ):0,
+        g.ui.out.addcallback(wd.updatelistener,wd.menu),
 
         // Set up UI wheel drive
         (wd.ui=g.div()).style=g.style+'top:0;right:80px',
         (wd.wddiv=g.div()).style='padding:5px',
-        wd.wddiv[g.it]=wd.disp(wd.getstate()),
+        wd.update(await wd.getstate()),
         wd.ui[g.ap](wd.wddiv),
         g.bd[g.ap](wd.ui),
         g.ui.add(wd.ui),
 
         // toggle between awd and fwd
-        g.io.kydn(e=>e.code==g.km.b['Switch Drive']?wd.update(wd.switchstate()):0),
+        g.io.kydn(async e=>e.code==g.km.b['Switch Drive']?wd.update(await wd.switchstate()):0),
 
         g.io.addtvis(g.km.b['Drive Switch Display'],wd.ui),
 
