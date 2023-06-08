@@ -45,7 +45,7 @@
         g.io.ael=(t,e,el)=>(el||g.evroot)[g.ael](t,e||g.io.handler),
 
         // Register all event listeners to default handler
-        ['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
+        ['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','mousemove','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
 
         g.io.kydn=(e,el,p)=>g.io.add('keydown',e,el,p),
         g.io.kyup=(e,el,p)=>g.io.add('keyup',e,el,p),
@@ -100,6 +100,7 @@
         g.io.fakemselv=(el,ko)=>g.io.fakemseev('mouseleave',el,ko),
         g.io.fakemseout=(el,ko)=>g.io.fakemseev('mouseout',el,ko),
         g.io.fakemseclk=(el,ko)=>g.io.fakemseev('click',el,ko),
+        g.io.fakemsemv=(el,ko)=>g.io.fakemseev('mousemove',el,ko),
 
 
         //---------------------------------------------------------------------
@@ -133,16 +134,6 @@
 
         g.ui.geticon=m=>m=='divider'?g.dc[g.qs]('#menu-bar-right>.menu-bar-vertical-divider'):(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>g.ui.iconnames.includes(m)&&x.firstChild.src.includes(m))).length?_m[0]:null,
         g.ui.settinglist=_=>g.dc[g.qs]('#menu-bar-right>.settings-input-list'),
-
-
-        // Add component to menu under a(n optional) input type in a(n optional) tab. 
-        // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
-        // input type is a string of one of the input types specified in `g.ui.inputtypes`. If it is null, it is added to all input types.
-        // tab is the name that specifies which tab it should be added to. If it is null, it is added to all tabs.
-        // Each element is also assigned a UID so that the state can be loaded from/saved in localstorage. It is incremented with each added element. Only this id is stored in this structure, so that it can be added to multiple tabs.
-        g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
-            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
-            :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
 
         
         // Update value of element to state stored in ls (or default if not present)
@@ -191,7 +182,8 @@
         g.ui.setvaldd=async(el,v)=>(_dd=el[g.qs]('.settings-input-enum'),g.io.fakemseov(_dd),await g.wait(1),_ops=el[g.qs]('.settings-input-enum_options'),_ops?(g.io.fakemsedn(_ops.children[v]),g.io.fakemseout(_ops),await g.wait(1)):0),
         g.ui.setvalkeybind=(el,v)=>0, //TODO
         g.ui.setvalsection=(el,v)=>(_open=el[g.qs]('collapsible-cross')[g.it]=='-',_open!=v?g.io.fakemsedn(el):0), // 1 is open, 0 is closed
-        g.ui.setvalslider=(el,v)=>0,//TODO
+        // g.ui.setvalslider=(el,v)=>(v=Math.max(el.__mn,Math.min(v,el.__mx)),_prcnt=(v-el.__mn)/(el.__mx-el.__mn),el[g.qs]('.settings-input-range_value')?.[g.it]=v,el[g.qs]('.settings-input-range_handle')?.style.left=`${_prcnt}%`),//TODO
+        g.ui.setvalslider=(el,v)=>0,
 
         // Set value of an element (if applicable)
         g.ui.setvalue=async(el,v)=>await(!el||!g.inDOM(el)?(g.io.log('Element is null or not in DOM. Could not set value.',el,v),null):
@@ -246,7 +238,7 @@
 
         // Close menu by clicking on the input blocker, or if that doesn't exist, fake mouseout the icon. If applicable, first revert to original tab.
         g.ui.closemenu=async _=>(_m=g.ui.curmlock.m,await g.ui.loadtabstate(),
-            _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(g.io.geticon(_m)),g.ui.menulock(0)),
+            _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(g.ui.geticon(_m)),g.ui.menulock(0)),
 
         // Open menu, manipulate settings as set by callback function, close menu
         g.ui.changemenu=async (e,m,it=null,tab=null)=>{var _open=await g.ui.openmenu(m,it,tab);if(_open){var _v=await e();await g.ui.closemenu();return _v}return null},
@@ -352,6 +344,15 @@
 
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
         g.ui.addelem=el=>(el.__id=g.ui.uid++,g.ui.elslst[el.__id]=el,el.__id),
+
+        // Add component to menu under a(n optional) input type in a(n optional) tab. 
+        // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
+        // input type is a string of one of the input types specified in `g.ui.inputtypes`. If it is null, it is added to all input types.
+        // tab is the name that specifies which tab it should be added to. If it is null, it is added to all tabs.
+        // Each element is also assigned a UID so that the state can be loaded from/saved in localstorage. It is incremented with each added element. Only this id is stored in this structure, so that it can be added to multiple tabs.
+        g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
+            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
+            :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
         
 
         g.ui.cb=(el,e,ev)=>(e(ev),(_v=g.ui.getvalue(el))!==null?g.ui.setlsstate(el.__id,_v):0),
@@ -375,7 +376,9 @@
             var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
             g.io.mseclk(_=>g.ui.collapse(_el,_c),_el,!0);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);!_dflt?gg.ui.collapse(_el,_c):0;return _el},
         
-        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{var _el=g.div();g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);return _el},
+        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{var _el=g.div();g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el.__mn=mn;_el.__mx=mx;_el[g.cn]=g.ui.se+'input-type_slider';_l=g.ui.makelbl(l,tlt);var _r=g.div();_r[g.cn]='settings-input-range';
+            var _v=g.div();_v[g.cn]='settings-input-range_value';var _b=g.div();_b[g.cn]='settings-input-range_bar';var _h=g.div();_h[g.cn]='settings-input-range_handle';
+            _b[g.ap](_h);_r[g.ap](_v,_b);_el[g.ap](_l,_r);return _el},
         //-------------
 
         // add styling ui
