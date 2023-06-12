@@ -57,6 +57,7 @@
         g.io.mselv=(e,el)=>g.io.ael('mouseleave',e,el), // special case: Event is not handled by event handler but cb is directly called.
         g.io.mseout=(e,el,p)=>g.io.add('mouseout',e,el,p),
         g.io.mseclk=(e,el,p)=>g.io.add('click',e,el,p),
+        g.io.msemv=(e,el,p)=>g.io.add('mousemove',e,el,p),
 
         // Default log function. Should be used for debug output.
         g.io.log=console.log,
@@ -182,8 +183,7 @@
         g.ui.setvaldd=async(el,v)=>(_dd=el[g.qs]('.settings-input-enum'),g.io.fakemseov(_dd),await g.wait(1),_ops=el[g.qs]('.settings-input-enum_options'),_ops?(g.io.fakemsedn(_ops.children[v]),g.io.fakemseout(_ops),await g.wait(1)):0),
         g.ui.setvalkeybind=(el,v)=>0, //TODO
         g.ui.setvalsection=(el,v)=>(_open=el[g.qs]('collapsible-cross')[g.it]=='-',_open!=v?g.io.fakemsedn(el):0), // 1 is open, 0 is closed
-        // g.ui.setvalslider=(el,v)=>(v=Math.max(el.__mn,Math.min(v,el.__mx)),_prcnt=(v-el.__mn)/(el.__mx-el.__mn),el[g.qs]('.settings-input-range_value')?.[g.it]=v,el[g.qs]('.settings-input-range_handle')?.style.left=`${_prcnt}%`),//TODO
-        g.ui.setvalslider=(el,v)=>0,
+        g.ui.setvalslider=async(el,v)=>(_s=el[g.qs]('.settings-input-range_bar'),_s?(_rect=_s.getBoundingClientRect(),_p=_rect.x+v*_rect.width,g.io.fakemsedn(_s,{bubbles:true,clientX:_p}),await g.wait(1),g.io.fakemseup(_s)):0),
 
         // Set value of an element (if applicable)
         g.ui.setvalue=async(el,v)=>await(!el||!g.inDOM(el)?(g.io.log('Element is null or not in DOM. Could not set value.',el,v),null):
@@ -338,12 +338,34 @@
         // Select option dropdown
         g.ui.ddselect=(d,o,e)=>o[g.cn]==g.ui.eo?(_o=o[g.it],d.firstChild.nodeValue=_o,e(_o)):0,
 
+        // Get percentage between min and max (0-1) of slider value
+        g.ui.getprcntcustomslider=(el,x)=>(_rect=el.getBoundingClientRect(),(x-_rect.left)/(_rect.right-_rect.left)),
+        // Sets value for custom-defined slider settings. Value is percentage between min and max values (0 to 1).
+        g.ui.setprcntcustomslider=(el,prcnt)=>el&&el.__mn&&el.__mx?(
+            prcnt=Math.max(0,Math.min(1,prcnt)),
+            _v=el.__mn+prcnt*(el.__mx-el.__mn),
+            _rv=el[g.qs]('.settings-input-range_value'),_rv?_rv[g.it]=_v.toFixed(g.ui.getprecisionslider(el)):0,
+            _h=el[g.qs]('.settings-input-range_handle'),_h?_h.style.left=`${prcnt*100}%`:0
+        ):console.error('Slider, min-, or max value not defined',el),
+        // Get precision of slider value. If '__precision' property not set, it takes the length of string after dot.
+        g.ui.getprecisionslider=el=>el?(el.__precision?el.__precision:(_v=el[g.qs]('.settings-input-range_value'),_dec=_v[g.it].split('.'),_prscn=_dec.length>1?_dec[1].length:0,el.__precision=_prscn,_prscn)):null,
+
+        g.ui.editingslider=null,
+        g.ui.startsliding=(el,ev)=>(g.ui.editingslider=el,g.ui.updatesliding(ev)),
+        g.ui.updatesliding=ev=>g.ui.editingslider?(_bar=g.ui.editingslider[g.qs]('.settings-input-range_bar'),g.ui.setprcntcustomslider(g.ui.editingslider,g.ui.getprcntcustomslider(_bar,ev.clientX))):0,
+        g.ui.stopsliding=_=>g.ui.editingslider?(g.ui.editingslider=null):0,
+
+        // Event listeners for sliders (except for starting sliding)
+        g.io.mseup(_=>g.ui.stopsliding(),g.evroot),
+
         //------------
         // creation of ui components
         //
 
-        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
+        // Assigns unique id to element and adds id to element list. Returns assigned id.
         g.ui.addelem=el=>(el.__id=g.ui.uid++,g.ui.elslst[el.__id]=el,el.__id),
+        // Triggers callback function and after that updates the localstorage value based on the new state.
+        g.ui.cb=(el,e,ev)=>(e(ev),(_v=g.ui.getvalue(el))!==null?g.ui.setlsstate(el.__id,_v):0),
 
         // Add component to menu under a(n optional) input type in a(n optional) tab. 
         // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
@@ -353,32 +375,156 @@
         g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
             (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
             :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
-        
 
-        g.ui.cb=(el,e,ev)=>(e(ev),(_v=g.ui.getvalue(el))!==null?g.ui.setlsstate(el.__id,_v):0),
-        
-        g.ui.makebttn=(l,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);_el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');_el.title=tlt;_el[g.it]=l;g.io.mseclk(e,_el,!0);return _el},
+        g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
 
-        g.ui.makekeybind=(s,l,d,tlt='')=>{var _e=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_e[g.cn]=g.ui.se;var _l=g.ui.makelbl(l,tlt);var _c=g.div();_c[g.cn]='settings-input-signal-clear';_c[g.it]='x';
-            var _i=g.div();_i[g.cn]='settings-input-signal';_i.title='Click to remap';_i[g.it]=v;
-            g.km.aelclear(_c,_l,_i);g.km.aelbeginedit(s,_l,_i);g.km.aeledit(_i);_e[g.ap](_l,_c,_i);return _e},
-        
-        g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el[g.cn]=g.ui.se+'input-type_toggle';_l=g.ui.makelbl(l,tlt);var _t=g.div();_t[g.cn]='settings-input-bool';
-            var _o1=g.div();var _o2=g.div();_o1[g.cn]=_o2[g.cn]='settings-input-bool_option';_o1[g.it]=o1;_o2[g.it]=o2,(_dflt?_o2:_o1).classList.add('bool_selected');
-            g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,0,e)),_o1,!0);g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,1,e)),_o2,!0);_t[g.ap](_o1,_o2);_el[g.ap](_l,_t);return _el},
-        
-        g.ui.makedropdown=(l,o,d,e,tlt='')=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,o[d]);!o.includes(_dflt)?_dflt=o[d]:0;
-            _el[g.cn]=g.ui.se+'input-type_dropdown';_l=g.ui.makelbl(l,tlt);var _e=g.div();_e[g.cn]='settings-input-enum';_e[g.it]=_dflt;
-            var _a=g.div();_a[g.cn]='settings-input-enum_arrow';_a[g.it]='▾';var _o=g.div();_o[g.cn]='settings-input-enum_options';_o.style.display='none';g.io.msedn(ev=>g.ui.cb(_el,e1=>g.ui.ddselect(_e,e1.target,e),ev),_o,!0);
-            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));_o[g.ap](..._op);g.io.mseov(_=>g.ui.opendd(_o),_e,!0);g.io.mseout(_=>g.ui.closedd(),_e,!0);_e[g.ap](_a,_o);_el[g.ap](_l,_e);return _el},
+        g.ui.makebttn=(l,e,tlt='')=>{
+            var _el=g.div();
+            var _id=g.ui.addelem(_el);
+            _el[g.cn]=g.ui.se+'input-type_bttn'+(tlt?' help':'');
+            _el.title=tlt;
+            _el[g.it]=l;
+            g.io.mseclk(e,_el,!0);
+            return _el
+        },
 
-        g.ui.makesection=(l,els,d=!0)=>{var _el=g.div();var _id=g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';
-            var _t=g.div();_t[g.cn]='collapsible-title';_t[g.it]=l;var _c=g.div();_c[g.cn]='collapsible-cross';
-            g.io.mseclk(_=>g.ui.collapse(_el,_c),_el,!0);_c[g.it]='-';_el._els=els;_el[g.ap](_t,_c);!_dflt?gg.ui.collapse(_el,_c):0;return _el},
+        g.ui.makekeybind=(s,l,d,tlt='')=>{
+            var _e=g.div();
+            var _id=g.ui.addelem(_el);
+            var _dflt=g.ui.getlsstate(_id,d);
+            _e[g.cn]=g.ui.se;
+
+            var _l=g.ui.makelbl(l,tlt);
+
+            var _c=g.div();
+            _c[g.cn]='settings-input-signal-clear';
+            _c[g.it]='x';
+
+            var _i=g.div();
+            _i[g.cn]='settings-input-signal';
+            _i.title='Click to remap';
+            _i[g.it]=v;
+
+            g.km.aelclear(_c,_l,_i);
+            g.km.aelbeginedit(s,_l,_i);
+            g.km.aeledit(_i);
+
+            _e[g.ap](_l,_c,_i);
+            return _e
+        },
         
-        g.ui.makeslider=(s,l,mn,mx,d,e,tlt='')=>{var _el=g.div();g.ui.addelem(_el);var _dflt=g.ui.getlsstate(_id,d);_el.__mn=mn;_el.__mx=mx;_el[g.cn]=g.ui.se+'input-type_slider';_l=g.ui.makelbl(l,tlt);var _r=g.div();_r[g.cn]='settings-input-range';
-            var _v=g.div();_v[g.cn]='settings-input-range_value';var _b=g.div();_b[g.cn]='settings-input-range_bar';var _h=g.div();_h[g.cn]='settings-input-range_handle';
-            _b[g.ap](_h);_r[g.ap](_v,_b);_el[g.ap](_l,_r);return _el},
+        g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{
+            var _el=g.div();
+            var _id=g.ui.addelem(_el);
+            var _dflt=g.ui.getlsstate(_id,d);
+            _el[g.cn]=g.ui.se+'input-type_toggle';
+
+            _l=g.ui.makelbl(l,tlt);
+
+            var _t=g.div();
+            _t[g.cn]='settings-input-bool';
+
+            var _o1=g.div();
+            var _o2=g.div();
+            _o1[g.cn]=_o2[g.cn]='settings-input-bool_option';
+            _o1[g.it]=o1;
+            _o2[g.it]=o2;
+            (_dflt?_o2:_o1).classList.add('bool_selected');
+
+            g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,0,e)),_o1,!0);
+            g.io.msedn(_=>g.ui.cb(_el,_=>g.ui.toggle(_t,1,e)),_o2,!0);
+
+            _t[g.ap](_o1,_o2);
+            _el[g.ap](_l,_t);
+            return _el
+        },
+        
+        g.ui.makedropdown=(l,o,d,e,tlt='')=>{
+            var _el=g.div();
+            var _id=g.ui.addelem(_el);
+            var _dflt=g.ui.getlsstate(_id,o[d]);
+            !o.includes(_dflt)?_dflt=o[d]:0;
+            _el[g.cn]=g.ui.se+'input-type_dropdown';
+
+            var _l=g.ui.makelbl(l,tlt);
+
+            var _e=g.div();
+            _e[g.cn]='settings-input-enum';
+            _e[g.it]=_dflt;
+
+            var _a=g.div();
+            _a[g.cn]='settings-input-enum_arrow';
+            _a[g.it]='▾';
+
+            var _o=g.div();
+            _o[g.cn]='settings-input-enum_options';
+            _o.style.display='none';
+
+            var _op=o.map(x=>((__o=g.div())[g.cn]=g.ui.eo,__o[g.it]=x,__o));
+            
+            g.io.msedn(ev=>g.ui.cb(_el,e1=>g.ui.ddselect(_e,e1.target,e),ev),_o,!0);
+            g.io.mseov(_=>g.ui.opendd(_o),_e,!0);
+            g.io.mseout(_=>g.ui.closedd(),_e,!0);
+
+            _o[g.ap](..._op);
+            _e[g.ap](_a,_o);
+            _el[g.ap](_l,_e);
+            return _el
+        },
+
+        g.ui.makesection=(l,els,d=!0)=>{
+            var _el=g.div();
+            var _id=g.ui.addelem(_el);
+            var _dflt=g.ui.getlsstate(_id,d);
+            _el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';
+            _el._els=els;
+
+            var _t=g.div();
+            _t[g.cn]='collapsible-title';
+            _t[g.it]=l;
+
+            var _c=g.div();
+            _c[g.cn]='collapsible-cross';
+            _c[g.it]='-';
+
+            // g.io.mseclk(_=>g.ui.collapse(_el,_c),_el,!0);
+            g.io.mseclk(_=>g.ui.cb(_el,_=>g.ui.collapse(_el,_c)),_el,!0);
+
+            _el[g.ap](_t,_c);
+            !_dflt?g.ui.collapse(_el,_c):0;
+            return _el
+        },
+        
+        g.ui.makeslider=(l,mn,mx,d,prscn,e,tlt='')=>{
+            var _el=g.div();
+            var _id=g.ui.addelem(_el);
+            var _dflt=g.ui.getlsstate(_id,d);
+            _el.__mn=mn;
+            _el.__mx=mx;
+            _el.__precision=prscn;
+            _el[g.cn]=g.ui.se+'input-type_slider';
+
+            var _l=g.ui.makelbl(l,tlt);
+
+            var _r=g.div();
+            _r[g.cn]='settings-input-range';
+            var _v=g.div();
+            _v[g.cn]='settings-input-range_value';
+            var _b=g.div();
+            _b[g.cn]='settings-input-range_bar';
+            var _h=g.div();
+            _h[g.cn]='settings-input-range_handle';
+
+            g.io.msedn(ev=>g.ui.cb(_el,ev1=>(g.ui.startsliding(_el,ev1),e(ev1)),ev),_b,!0);
+            g.io.msemv(ev=>g.ui.editingslider?g.ui.cb(_el,ev1=>(g.ui.updatesliding(ev1),e(ev1)),ev):0,g.evroot);
+
+            _b[g.ap](_h);
+            _r[g.ap](_v,_b);
+            _el[g.ap](_l,_r);
+
+            g.ui.setprcntcustomslider(_el,(_dflt-mn)/(mx-mn));
+            return _el
+        },
         //-------------
 
         // add styling ui
@@ -491,11 +637,13 @@
         rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
         rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
         rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
+        rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.ui.log(e),'Test label'),
         g.ui.addcomponent(rt.st_resetoffroad,'config'),
         g.ui.addcomponent(rt.st_resetscore,'config'),
         g.ui.addcomponent(rt.test1,'config'),
         g.ui.addcomponent(rt.test2,'config'),
         g.ui.addcomponent(rt.test3,'config'),
+        g.ui.addcomponent(rt.test4,'config'),
 
         rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
         g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
