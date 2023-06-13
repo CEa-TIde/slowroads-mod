@@ -45,7 +45,8 @@
         g.io.ael=(t,e,el)=>(el||g.evroot)[g.ael](t,e||g.io.handler),
 
         // Register all event listeners to default handler
-        ['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','mousemove','click','keydown','keyup'].forEach(x=>g.io.ael(x)),
+        g.io.inputtypes=['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','mousemove','click','keydown','keyup'],
+        g.io.inputtypes.forEach(x=>g.io.ael(x)),
 
         g.io.kydn=(e,el,p)=>g.io.add('keydown',e,el,p),
         g.io.kyup=(e,el,p)=>g.io.add('keyup',e,el,p),
@@ -66,7 +67,7 @@
         // Attach hook. Passed value should be stored first so that the `enabled` flag can be manipulated.
         g.io.addloghook=x=>typeof x.cb==='function'?g.loghooks.push(x):g.io.log('Callback is not set. Format: {cb: <callback function>, enabled: <bool>}'),
         // Call all attached hooks with the passed arguments.
-        g.io.loghook=v=>g.loghooks.forEach(x=>x.enabled?x.cb(v):0),
+        g.io.loghook=v=>g.io.loghooks.forEach(x=>x.enabled?x.cb(v):0),
         // Overwrite console.log function with hook so that the output can be read. Argument array is passed to the hooks.
         console.log=function(...args){g.io.log(...args);g.io.loghook(args)},
 
@@ -77,14 +78,10 @@
         g.io.tvisall=_=>(g.io.uivis=!g.io.uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>g.io.uivis?x.classList.remove(g.hdit):x.classList.add(g.hdit))),
 
 
-        // Remapping of keybinds
+        // Handler for recording inputbinds
+        // Is attached to the settings menu, and stops bubbling to prevent keystrokes from affecting the game when remapping input, if recording keypress and result callback is false.
+        g.io.handlerinputbind=(ss,cb)=>g.io.inputtypes.forEach(x=>g.io.ael(x,ev=>g.ui.km.current?(_res=cb(ev),!_res?ev.stopPropagation():0):0,ss)),
 
-        // Handler for recording keybinds
-        // Is attached to the settings menu and stops bubbling to prevent keystrokes from affecting the game when remapping input.
-        g.io.handlerkeybind=cb=>(e=>e.stopPropagation(),cb(e.code)),
-        
-        g.io.startkbedit=_=>0,
-        g.io.stopkbedit=_=>0,
 
 
         // Faking of events
@@ -251,7 +248,15 @@
         
         //-----------------------------------------------------------------------------------------------------
         // Handles drawing ui to menu when open, and menu states
-        g.ui.out={menu:{m:null,icon:null,focus:!1,it:null,tab:null},callbacks:[]},
+        g.ui.out={menu:{m:null,icon:null,ss:null,focus:!1,it:null,tab:null},callbacks:[]},
+        g.ui.out.resetstate=_=>g.ui.out.menu={m:null,icon:null,ss:null,focus:!1,it:null,tab:null},
+
+        // handle focus and unfocus settings window for recording keypresses
+        g.ui.out.focusready=s=>s.tabIndex=-1,
+        g.ui.out.focus=_=>(g.ui.out.menu.ss.focus(),g.io.log('focusing...')),
+        g.ui.out.unfocus=_=>(g.evroot.focus(),g.io.log('stopping focus...')), // TODO set focus to evroot
+
+
         // Draw elements to open menu
         // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: name of tab (set to null if not applicable)
         g.ui.out.drawcomponent=(s,el)=>s.prepend(el),
@@ -262,17 +267,16 @@
         // Draw current open menu (also updates the current stored input type and tab names)
         g.ui.out.drawcurrent=(ss,m)=>ss?(g.ui.out.menu.it=g.ui.getinputtype(ss),g.ui.out.menu.tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',g.ui.out.menu.it,' tab: ',g.ui.out.menu.tab,_s),
             _s?g.ui.out.draw(_s,m,g.ui.out.menu.it,g.ui.out.menu.tab):0):0,
-        g.ui.out.drawmenu=m=>g.ui.out.drawcurrent(g.dc[g.qs]('.settings-sidebar'),m),
+        g.ui.out.drawmenu=m=>g.ui.out.drawcurrent(g.ui.out.menu.ss,m),
 
         // Add callback for when specific menu (+ optionally input type and tab) is opened
         g.ui.out.addcallback=(cb,m,it=null,tab=null)=>g.ui.out.callbacks.push({cb:cb,m:m,it:it,tab:tab}),
         // Trigger all callbacks that are attached to the opened menu + it + tab combination.
         g.ui.out.menucbhandler=_=>g.ui.out.callbacks.forEach(x=>(_m=g.ui.out.menu,g.ui.m_unlocked&&x.m==_m.m&&(x.it==null||x.it==_m.it)&&(x.tab==null||x.tab==_m.tab)?x.cb(_m.m,_m.it,_m.tab):0)),
 
-        g.ui.out.resetstate=_=>g.ui.out.menu={m:null,icon:null,focus:!1,it:null,tab:null},
         // Return focus if keybind was being edited and close menu
         g.ui.out.resetmenu=(clk=!0,t=null)=>g.ui.out.menu.icon&&(!t||g.ui.out.menu.icon!=t)&&(clk||!g.ui.out.menu.focus)
-            ?(g.io.log('closing menu...',g.ui.out.menu.icon,t),g.ui.out.resetstate()):0,
+            ?(g.io.log('closing menu...',g.ui.out.menu.icon,t),g.ui.stopsliding(),g.ui.km.stoprecording(),g.ui.out.resetstate()):0,
         // Handle currently active menu + add ev listeners for closing menu
         // Only handle if not already handled
         g.ui.out.handlemenu=(m,clk,icon)=>async _=>g.ui.m_unlocked&&(!g.ui.out.menu.focus||!g.ui.noclosemenu.includes(m))?(
@@ -284,18 +288,27 @@
                 // if current menu icon has a menu associated with it, and menu isn't already handled, activate menu
                 :!g.dc[g.qs]('.settings-input-row.mod-entry')?(
                     g.ui.out.menu.m=m,g.ui.out.menu.icon=icon,g.ui.out.menu.focus=clk,
-                    _ib=g.dc[g.qs]('#input-blocker'),_ss=g.dc[g.qs]('.settings-sidebar'),
+                    _ib=g.dc[g.qs]('#input-blocker'),g.ui.out.menu.ss=g.dc[g.qs]('.settings-sidebar'),
                     // draw custom menu entries if menu exists
-                    g.ui.out.drawcurrent(_ss,m),
+                    g.ui.out.drawcurrent(g.ui.out.menu.ss,m),
                     // Trigger callbacks for current menu
                     g.ui.out.menucbhandler(),
 
-                    _ib&&_ss?(
+                    _ib&&g.ui.out.menu.ss?(
                         // Add event listeners for closing menu when clicking/hovering outside menu (depending if focus there or not)
                         g.io.msedn(_=>(g.io.log('clk on ib'),g.ui.out.resetmenu(!0)),_ib),
-                        g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.out.resetmenu(!1,e.relatedTarget)),_ss),
+                        g.io.mselv(e=>(g.io.log('hover out setting'),g.ui.out.resetmenu(!1,e.relatedTarget)),g.ui.out.menu.ss),
                         // Add event listener for clicking in menu as that focuses the menu
-                        g.io.msedn(_=>g.ui.out.menu.focus=!0,_ss)
+                        g.io.mseclk(_=>g.ui.out.menu.focus=!0,g.ui.out.menu.ss),
+
+                        // Allow focus of settings window for keypress recording purposes
+                        g.ui.out.focusready(g.ui.out.menu.ss),
+                        // Add eventlistener for cancelling keybind recording
+                        // g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev),g.ui.out.menu.ss),
+
+                        // Add eventlistener for recording input in inputbind (or starting the recording)
+                        // Add event listener for capturing all input without influencing the game state. Only prevents propagation when inputbind is being recorded.
+                        g.io.handlerinputbind(g.ui.out.menu.ss,ev=>g.ui.km.handleinput(ev))
                     ):0,
 
                     // Add event listeners for switching input types and tabs
@@ -318,11 +331,109 @@
         //------------------------------------------------------------------------------------------------------
 
 
+        // Responsible for recording of keybind
+        g.ui.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
 
-        g.ui.ready=s=>s.tabIndex=-1,
+        g.ui.km.current=null,
+        g.ui.km.currval=null,
+
+        // TODO: if clicking on in-built keybind, relay that event further on.
+        // Called when clicking inside the menu.
+        // Cancel the recording if outside the current recording field.
+        // Start new recording if clicking inside field that isn't being edited.
+        g.ui.km.handlemenuclk=(ev,tgt=null)=>g.ui.km.current&&(!tgt||g.ui.km.current===tgt)?(
+            _i=g.ui.km.current[g.qs]('.settings-input-signal-reset'),
+            _i&&!_i.contains(ev.target)?(
+                g.io.log('cancel recording'),
+                g.ui.km.stoprecording()
+            ):0
+        ):tgt?g.ui.km.startrecording(tgt):0,
+
+        // Find keybind setting that has target as the input field
+        g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row.mod-entry')].filter(x=>g.ui.iskeybind(x)&&x.lastChild.contains(el)),_s.length?_s[0]:null),
+        // g.ui.km.handleinput=(ev)=>(_el=g.ui.km.findsetting(g.ui.out.menu.ss,ev.target),ev.type=='click'&&!g.ui.km.current?g.ui.km.startrecording(_el):0),
+        g.ui.km.handleinput=ev=>(
+            _el=g.ui.km.findsetting(g.ui.out.menu.ss,ev.target),
+            ev.type==='click'?(
+                // Set focus to window (mirrored from other input handler)
+                g.ui.out.menu.focus=!0,
+                g.ui.km.handlemenuclk(ev,_el)
+                
+            ):0
+        ),
+
+        // Set focus to settings window and start recording keybind
+        g.ui.km.startrecording=el=>(g.ui.out.focus(),g.io.log('starting recording...'),g.ui.km.setuprecording(el)), // TODO
+        // Stop recording of keybind and return focus to evroot
+        g.ui.km.stoprecording=_=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current)), // TODO
+
+        // Stop current keyrecordings (also regular keybind setting)
+        g.ui.km.stopcurrentrecording=_=>(g.ui.km.current?(g.ui.km.finishrecording(g.ui.km.current)):0,[...g.ui.out.menu.ss[g.qsa]('.settings-input-row:not(.mod-entry) .settings-input-signal-reset')].forEach(x=>g.io.fakemseclk(x))),
+
+
+        // g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
+        // g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
+        //
+        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),_field=el[g.qs]('.settings-input-signal'),g.ui.km.currval=_field[g.it],_field[g.it]='press a key...',_field.classList.add('settings-input-signal-reset'),g.ui.km.current=el):0,
+        g.ui.km.finishrecording=el=>el?(_field=el[g.qs]('.settings-input-signal'),_field[g.it]=g.ui.km.currval,_field.classList.remove('settings-input-signal-reset'),g.ui.km.current=null):0,
+
+
+        // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
+        g.ui.km.disp=v=>/Key[a-z]/i.test(v)?v[-1]:v,
+
+
+
+
+
+        // Set up keybinds settings for mod
+        // instead save when settings change + reset button
+        // g.ls.set('modkeybinds',g.km.b),
+        g.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
+        (g.km.todefault=_=>g.km.b=g.ls.get(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
+        // // The order that the properties are displayed in the settings (reversed because it is added in reverse order)
+        // g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
+        // // Select the keybinds menu icon
+        // g.km.menu=g.ui.geticon('controls'),
+        // // Set a keybind and sync to local storage
+        // g.km.setkey=(k,v)=>(g.km.b[k]=v,g.ls.set(g.km.lsname,g.km.b)),
+        // // stores the label and field of the field being edited
+        // g.km.ed=['',null],
+        // g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
+        // // Start editing the selected field; if the field was already being edited, stop editing instead. If another field is already being edited, stop editing that first.
+        // g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
+        // g.km.aelbeginedit=(s,l,f)=>g.io.msedn(_=>g.km.beginedit(s,l,f),f),
+        // g.km.edit=e=>g.km.ed[1]?(g.io.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
+        // g.km.aeledit=f=>f[g.ael]('keydown',g.km.edit),
+        // // Add listener for clear button
+        // g.km.aelclear=(c,l,f)=>g.io.msedn(_=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],'')),c),
+        // // Create entry with a name and value, and prepend to settings
+        // g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.ui.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
+        //     g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
+        // // Reset all keybinds to default values and delete the local storage entry
+        // g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.del(g.km.lsname)),
+        // // Create reset button, and prepend to settings
+        // g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.ui.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.io.msedn(_=>g.km.reset(),_e),s.prepend(_e),_e),
+        // // TODO add event listeners
+        // // Draw all keybind options for the mod
+        // g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_s.tabIndex=-1,_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
+
+        // // Add event listeners to test for opening keybinds menu and swapping of tabs
+        // //
+        // // Check if in both the correct tab and the correct input type (keyboard), and check if the elements aren't already present
+        // // Also add an event listener to the tab and input type switch while the menu is open
+        // g.km.chkupdate=async _=>(await g.wait(10),(_o=g.bd[g.qs]('.settings-sidebar_options'))&&g.io.msedn(g.km.chkupdate,_o),(_t=g.bd[g.qs]('.settings-sidebar_tabs'))&&g.io.msedn(g.km.chkupdate,_t),
+        //     g.dc[g.qs]('.settings-sidebar_tab.option-selected:first-child')&&g.dc[g.qs]('.settings-sidebar_option.option-selected:first-child')&&!g.dc[g.qs]('#resetbttn')?g.km.draw():0),
+        // g.io.msedn(g.km.chkupdate,g.km.menu),
+        // g.io.mseov(g.km.chkupdate,g.km.menu),
+
+
+
+
+        //-----------------------------------------------------------------------------------------------------
+
+
+
         g.ui.deselect=el=>(_x=el[g.cn]).includes('input-type_dropdown')||_x.includes('input-type_keybind')?('close the dropdown or stop keybind'):0,
-        g.ui.focus=(s,el)=>(s.focus(),g.ui.f=el),
-        g.ui.unfocus=s=>(s.blur(),g.ui.f=null),
 
         g.ui.add=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
 
@@ -388,11 +499,12 @@
             return _el
         },
 
-        g.ui.makekeybind=(s,l,d,tlt='')=>{
-            var _e=g.div();
+        g.ui.makekeybind=(l,d,tlt='')=>{
+            var _el=g.div();
             var _id=g.ui.addelem(_el);
             var _dflt=g.ui.getlsstate(_id,d);
-            _e[g.cn]=g.ui.se;
+            _el[g.cn]=g.ui.se;
+            _el.__dflt=_dflt;
 
             var _l=g.ui.makelbl(l,tlt);
 
@@ -403,14 +515,13 @@
             var _i=g.div();
             _i[g.cn]='settings-input-signal';
             _i.title='Click to remap';
-            _i[g.it]=v;
+            _i[g.it]=_dflt;
 
-            g.km.aelclear(_c,_l,_i);
-            g.km.aelbeginedit(s,_l,_i);
-            g.km.aeledit(_i);
+            // Start recording when clicking on edit field
+            g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev,_el),_i);
 
-            _e[g.ap](_l,_c,_i);
-            return _e
+            _el[g.ap](_l,_c,_i);
+            return _el
         },
         
         g.ui.maketoggle=(l,o1,o2,d,e,tlt='')=>{
@@ -418,6 +529,7 @@
             var _id=g.ui.addelem(_el);
             var _dflt=g.ui.getlsstate(_id,d);
             _el[g.cn]=g.ui.se+'input-type_toggle';
+            _el.__dflt=_dflt;
 
             _l=g.ui.makelbl(l,tlt);
 
@@ -445,6 +557,7 @@
             var _dflt=g.ui.getlsstate(_id,o[d]);
             !o.includes(_dflt)?_dflt=o[d]:0;
             _el[g.cn]=g.ui.se+'input-type_dropdown';
+            _el.__dflt=_dflt;
 
             var _l=g.ui.makelbl(l,tlt);
 
@@ -478,6 +591,7 @@
             var _dflt=g.ui.getlsstate(_id,d);
             _el[g.cn]=g.ui.se+'settings-input-list_section collapsible input-type_section';
             _el._els=els;
+            _el.__dflt=_dflt;
 
             var _t=g.div();
             _t[g.cn]='collapsible-title';
@@ -502,6 +616,7 @@
             _el.__mn=mn;
             _el.__mx=mx;
             _el.__precision=prscn;
+            _el.__dflt=_dflt;
             _el[g.cn]=g.ui.se+'input-type_slider';
 
             var _l=g.ui.makelbl(l,tlt);
@@ -533,55 +648,6 @@
         g.css.insertRule(`.${g.hdit}{opacity:0 !important;overflow-y:hidden;height:0 !important;padding:0 !important;}`),
 
         //-------------------------------------------------------------------
-
-        // Set up settings UI for mod
-        // g.st={opt:[]},
-        // g.st.menu=g.ui.geticon('config'),
-        // g.st.add=(n,o,d)=>0,
-        // g.st.makesection=(s,n)=>((_d=g.div())[g.cn]=g.ui.se+' settings-input-list_section collapsible',(_t=g.div())[g.cn]='collapsible-title',_t[g.it]=n,(_c=g.div())[g.cn]='collapsible-cross',_c[g.it]='-',_d[g.ap](_t),_d[g.ap](_c),s.prepend(_d),_d),
-        // g.st.makeentry=(s,n,o,d)=>((_d=g.div())[g.cn]=g.ui.se,s.prepend(_d),_d),
-        // g.st.draw=_=>(_s=g.dc[g.qs]('.settings-input-list')),
-        
-        // Set up keybinds settings for mod
-        // instead save when settings change + reset button
-        // g.ls.set('modkeybinds',g.km.b),
-        g.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
-        (g.km.todefault=_=>g.km.b=g.ls.get(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
-        // The order that the properties are displayed in the settings (reversed because it is added in reverse order)
-        g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
-        // Select the keybinds menu icon
-        g.km.menu=g.ui.geticon('controls'),
-        // Set a keybind and sync to local storage
-        g.km.setkey=(k,v)=>(g.km.b[k]=v,g.ls.set(g.km.lsname,g.km.b)),
-        // stores the label and field of the field being edited
-        g.km.ed=['',null],
-        g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
-        // Start editing the selected field; if the field was already being edited, stop editing instead. If another field is already being edited, stop editing that first.
-        g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
-        g.km.aelbeginedit=(s,l,f)=>g.io.msedn(_=>g.km.beginedit(s,l,f),f),
-        g.km.edit=e=>g.km.ed[1]?(g.io.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
-        g.km.aeledit=f=>f[g.ael]('keydown',g.km.edit),
-        // Add listener for clear button
-        g.km.aelclear=(c,l,f)=>g.io.msedn(_=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],'')),c),
-        // Create entry with a name and value, and prepend to settings
-        g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.ui.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
-            g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
-        // Reset all keybinds to default values and delete the local storage entry
-        g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.del(g.km.lsname)),
-        // Create reset button, and prepend to settings
-        g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.ui.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.io.msedn(_=>g.km.reset(),_e),s.prepend(_e),_e),
-        // TODO add event listeners
-        // Draw all keybind options for the mod
-        g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_s.tabIndex=-1,_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
-
-        // Add event listeners to test for opening keybinds menu and swapping of tabs
-        //
-        // Check if in both the correct tab and the correct input type (keyboard), and check if the elements aren't already present
-        // Also add an event listener to the tab and input type switch while the menu is open
-        g.km.chkupdate=async _=>(await g.wait(10),(_o=g.bd[g.qs]('.settings-sidebar_options'))&&g.io.msedn(g.km.chkupdate,_o),(_t=g.bd[g.qs]('.settings-sidebar_tabs'))&&g.io.msedn(g.km.chkupdate,_t),
-            g.dc[g.qs]('.settings-sidebar_tab.option-selected:first-child')&&g.dc[g.qs]('.settings-sidebar_option.option-selected:first-child')&&!g.dc[g.qs]('#resetbttn')?g.km.draw():0),
-        g.io.msedn(g.km.chkupdate,g.km.menu),
-        g.io.mseov(g.km.chkupdate,g.km.menu),
 
 
         //open and hide debug menus
@@ -637,13 +703,17 @@
         rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
         rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
         rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
-        rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.ui.log(e),'Test label'),
+        rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.io.log(e),'Test label'),
+        rt.test5=g.ui.makekeybind('Test keybind','KeyB','Test label'),
+        rt.test6=g.ui.makekeybind('Test keybind 2','KeyC','Test label 2'),
         g.ui.addcomponent(rt.st_resetoffroad,'config'),
         g.ui.addcomponent(rt.st_resetscore,'config'),
         g.ui.addcomponent(rt.test1,'config'),
         g.ui.addcomponent(rt.test2,'config'),
         g.ui.addcomponent(rt.test3,'config'),
         g.ui.addcomponent(rt.test4,'config'),
+        g.ui.addcomponent(rt.test5, 'controls','controls','controls'),
+        g.ui.addcomponent(rt.test6, 'controls','controls','controls'),
 
         rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
         g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
