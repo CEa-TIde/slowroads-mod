@@ -303,10 +303,7 @@
 
                         // Allow focus of settings window for keypress recording purposes
                         g.ui.out.focusready(g.ui.out.menu.ss),
-                        // Add eventlistener for cancelling keybind recording
-                        // g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev),g.ui.out.menu.ss),
 
-                        // Add eventlistener for recording input in inputbind (or starting the recording)
                         // Add event listener for capturing all input without influencing the game state. Only prevents propagation when inputbind is being recorded.
                         g.io.handlerinputbind(g.ui.out.menu.ss,ev=>g.ui.km.handleinput(ev))
                     ):0,
@@ -338,7 +335,7 @@
         g.ui.km.currval=null,
         g.ui.km.resetting=!1,
 
-        g.ui.km.getinputfield=el=>g.ui.km.current[g.qs]('.settings-input-signal-reset'),
+        g.ui.km.getinputfield=el=>el[g.qs]('.settings-input-signal'),
 
         g.ui.km.recordinput=ev=>(_i=g.ui.km.getinputfield(g.ui.km.current),ev.type!=='mousedown'||_i&&_i.contains(ev.target)?(
             _input=g.ui.km.disp(ev),
@@ -349,40 +346,44 @@
             g.ui.km.stoprecording()
         ):0),
 
-        // Convert input to display value
+        // Convert event to display value and code
         // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
         g.ui.km.disp=ev=>ev.type==='keydown'?
-            (/Key[a-z]/i.test(ev.code)?{v:ev.code,s:ev.code.slice(-1)}:{v:ev.code,s:ev.code})
+            (/Key[a-z]/i.test(ev.code)?{t:0,v:ev.code,s:ev.code.slice(-1)}:{t:0,v:ev.code,s:ev.code})
             :ev.type==='mousedown'?
-            (_b=ev.buttons,_b&1?{v:1,s:'Left Click'}:_b&2?{v:2,s:'Right Click'}:_b&4?{v:4,s:'Middle Click'}:{v:null,s:'Unknown'})
-            :(console.error('Unknown input type; value cannot be displayed.'),{v:null,s:'Unknown'}),
+            (_b=ev.buttons,_b&1?{t:1,v:1,s:'Left Click'}:_b&2?{t:1,v:2,s:'Right Click'}:_b&4?{t:1,v:4,s:'Middle Click'}:{t:1,v:null,s:'Unknown'})
+            :(console.error('Unknown input type; value cannot be displayed.'),{t:-1,v:null,s:'Unknown'}),
 
         // TODO: if clicking on in-built keybind, relay that event further on.
+        // TODO: if clicking on input type or tab, relay that event further on.
         // Called when clicking inside the menu.
         // Cancel the recording if outside the current recording field.
         // Start new recording if clicking inside field that isn't being edited.
-        g.ui.km.handlemenuclk=(ev,tgt=null)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
+        g.ui.km.handlemenuclk=(ev,tgt=null,ismod=!0)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
             :(
                 g.ui.km.current&&(!tgt||g.ui.km.current===tgt)?(
                     _i=g.ui.km.getinputfield(g.ui.km.current),
                     _i&&!_i.contains(ev.target)?(
                         g.io.log('cancel recording'),
                         g.ui.km.stoprecording(),
-                        !0
+                        ismod?!0:!1
                     )
                     :_i&&_i.contains(ev.target)?!0:!1
                 ):tgt?(g.ui.km.startrecording(tgt),!0):!1
             ),
 
         // Find keybind setting that has target as the input field
-        g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row.mod-entry')].filter(x=>g.ui.iskeybind(x)&&x.lastChild.contains(el)),_s.length?_s[0]:null),
-        // g.ui.km.handleinput=(ev)=>(_el=g.ui.km.findsetting(g.ui.out.menu.ss,ev.target),ev.type=='click'&&!g.ui.km.current?g.ui.km.startrecording(_el):0),
+        g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row')].filter(x=>g.ui.iskeybind(x)&&x.lastChild.contains(el)),_s.length?_s[0]:null),
+
+        // Handle all input events inside settings window when recording
         g.ui.km.handleinput=ev=>(
             _el=g.ui.km.findsetting(g.ui.out.menu.ss,ev.target),
+            _ismod=_el&&_el.classList.contains('mod-entry'),
+            _ismod?_el=null:0,
             ev.type==='click'?(
                 // Set focus to window (mirrored from other input handler)
                 g.ui.out.menu.focus=!0,
-                _res=g.ui.km.handlemenuclk(ev,_el),
+                _res=g.ui.km.handlemenuclk(ev,_el,_ismod),
                 _res
             )
             :['keydown','mousedown'].includes(ev.type)&&g.ui.km.current?(
