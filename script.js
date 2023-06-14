@@ -79,8 +79,8 @@
 
 
         // Handler for recording inputbinds
-        // Is attached to the settings menu, and stops bubbling to prevent keystrokes from affecting the game when remapping input, if recording keypress and result callback is false.
-        g.io.handlerinputbind=(ss,cb)=>g.io.inputtypes.forEach(x=>g.io.ael(x,ev=>g.ui.km.current?(_res=cb(ev),!_res?ev.stopPropagation():0):0,ss)),
+        // Is attached to the settings menu, and stops bubbling to prevent keystrokes from affecting the game when remapping input, if recording keypress and result callback is true.
+        g.io.handlerinputbind=(ss,cb)=>g.io.inputtypes.forEach(x=>g.io.ael(x,ev=>g.ui.km.current?(_res=cb(ev),_res?ev.stopPropagation():0):0,ss)),
 
 
 
@@ -345,9 +345,10 @@
             _i=g.ui.km.current[g.qs]('.settings-input-signal-reset'),
             _i&&!_i.contains(ev.target)?(
                 g.io.log('cancel recording'),
-                g.ui.km.stoprecording()
-            ):0
-        ):tgt?g.ui.km.startrecording(tgt):0,
+                g.ui.km.stoprecording(),
+                !0
+            ):!1
+        ):tgt?(g.ui.km.startrecording(tgt),!0):!1,
 
         // Find keybind setting that has target as the input field
         g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row.mod-entry')].filter(x=>g.ui.iskeybind(x)&&x.lastChild.contains(el)),_s.length?_s[0]:null),
@@ -357,9 +358,9 @@
             ev.type==='click'?(
                 // Set focus to window (mirrored from other input handler)
                 g.ui.out.menu.focus=!0,
-                g.ui.km.handlemenuclk(ev,_el)
-                
-            ):0
+                _res=g.ui.km.handlemenuclk(ev,_el),
+                _res
+            ):!1
         ),
 
         // Set focus to settings window and start recording keybind
