@@ -331,12 +331,24 @@
         // Responsible for recording of keybind
         g.ui.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
 
+        g.ui.km.inputbinds={},
+        // Set initial input bind. Not synced with local storage here, as it is the default.
+        g.ui.km.initbind=(n,key=null,mouse=null,pad=null)=>(g.ui.km.inputbinds[n]={key:key,mouse:mouse,pad:pad}),
+        // convert input type to respective value in [key, mouse, pad]
+        g.ui.km.parsebindtype=it=>it===g.ui.inputtypes[0]?'key':it===g.ui.inputtypes[1]?'mouse':it===g.ui.inputtypes[2]?'pad':'unknown',
+        // set bind and sync with local storage
+        g.ui.km.setbind=(n,it,v)=>(g.ui.km.inputbinds[n][g.ui.km.parsebindtype(it)]=v,g.ls.setkey(g.ui.km.lsname,n,g.ui.km.inputbinds[n])),
+        // get bind
+        g.ui.km.getbind=(n,it)=>g.ui.km.inputbinds[n][g.ui.km.parsebindtype(it)],
+
         g.ui.km.current=null,
         g.ui.km.currval=null,
         g.ui.km.resetting=!1,
 
         g.ui.km.getinputfield=el=>el[g.qs]('.settings-input-signal'),
+        g.ui.km.getclearbttn=el=>el[g.qs]('.settings-input-signal-clear'),
 
+        // TODO ev null check
         g.ui.km.recordinput=ev=>(_i=g.ui.km.getinputfield(g.ui.km.current),ev.type!=='mousedown'||_i&&_i.contains(ev.target)?(
             _input=g.ui.km.disp(ev),
             g.ui.km.currval=_input.s,
@@ -345,6 +357,12 @@
             // TODO sync to ls and internal value
             g.ui.km.stoprecording()
         ):0),
+
+        // Set 
+        // g.ui.km.setvalue=(el,ev)=>0,
+
+        // Clear value of the element
+        g.ui.km.clear=el=>g.io.log('clearing input',el),
 
         // Convert event to display value and code
         // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
@@ -373,7 +391,7 @@
             ),
 
         // Find keybind setting that has target as the input field
-        g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row')].filter(x=>g.ui.iskeybind(x)&&x.lastChild.contains(el)),_s.length?_s[0]:null),
+        g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row')].filter(x=>g.ui.iskeybind(x)&&g.ui.km.getinputfield(x)?.contains(el)),_s.length?_s[0]:null),
 
         // Handle all input events inside settings window when recording
         g.ui.km.handleinput=ev=>(
@@ -531,7 +549,9 @@
             var _dflt=g.ui.getlsstate(_id,d);
             _el[g.cn]=g.ui.se;
             _el.__dflt=_dflt;
-            _el.__cb=menu=>_el.__it=menu.it;
+            g.ui.km.initbind(l,_dflt);
+            // Set up when adding keybind to settings window. 
+            _el.__cb=menu=>(_el.__it=menu.it,_i[g.it]=g.ui.km.getbind(l,menu.it));
 
             var _l=g.ui.makelbl(l,tlt);
 
@@ -542,10 +562,13 @@
             var _i=g.div();
             _i[g.cn]='settings-input-signal';
             _i.title='Click to remap';
-            _i[g.it]=_dflt;
+            // _i[g.it]=_dflt;
 
             // Start recording when clicking on edit field
-            g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev,_el),_i);
+            g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev,_el),_i,!0);
+
+            // Clear input when clicking on X. Is ignored when editing keybind (cancels edit instead)
+            g.io.msedn(ev=>g.ui.km.clear(_el),_c,!0);
 
             _el[g.ap](_l,_c,_i);
             return _el
