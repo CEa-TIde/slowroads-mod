@@ -254,15 +254,15 @@
         // handle focus and unfocus settings window for recording keypresses
         g.ui.out.focusready=s=>s.tabIndex=-1,
         g.ui.out.focus=_=>(g.ui.out.menu.ss.focus(),g.io.log('focusing...')),
-        g.ui.out.unfocus=_=>(g.evroot.focus(),g.io.log('stopping focus...')), // TODO set focus to evroot
+        g.ui.out.unfocus=_=>(g.evroot.focus(),g.io.log('stopping focus...')),
 
 
         // Draw elements to open menu
         // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: name of tab (set to null if not applicable)
-        g.ui.out.drawcomponent=(s,el)=>s.prepend(el),
-        g.ui.out.drawtab=(s,it,tab)=>tab?(it.tab[tab]?.forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x]))):0,
-        g.ui.out.drawinput=(s,m,it,tab)=>it?(_it=m.input[it],g.ui.out.drawtab(s,_it,tab),g.ui.out.drawtab(s,_it,'all')):0,
-        g.ui.out.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.out.drawinput(s,_m,it,tab),g.ui.out.drawinput(s,_m,'all',tab)),
+        g.ui.out.drawcomponent=(s,el,menu)=>(el.__cb&&el.__cb(menu),s.prepend(el)),
+        g.ui.out.drawtab=(s,it,tab,menu)=>tab?(it.tab[tab]?.forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x],menu))):0,
+        g.ui.out.drawinput=(s,m,it,tab,menu)=>it?(_it=m.input[it],g.ui.out.drawtab(s,_it,tab,menu),g.ui.out.drawtab(s,_it,'all',menu)):0,
+        g.ui.out.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.out.drawinput(s,_m,it,tab,{m:m,it:it,tab:tab}),g.ui.out.drawinput(s,_m,'all',tab,{m:m,it:it,tab:tab})),
 
         // Draw current open menu (also updates the current stored input type and tab names)
         g.ui.out.drawcurrent=(ss,m)=>ss?(g.ui.out.menu.it=g.ui.getinputtype(ss),g.ui.out.menu.tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',g.ui.out.menu.it,' tab: ',g.ui.out.menu.tab,_s),
@@ -336,19 +336,43 @@
 
         g.ui.km.current=null,
         g.ui.km.currval=null,
+        g.ui.km.resetting=!1,
+
+        g.ui.km.getinputfield=el=>g.ui.km.current[g.qs]('.settings-input-signal-reset'),
+
+        g.ui.km.recordinput=ev=>(_i=g.ui.km.getinputfield(g.ui.km.current),ev.type!=='mousedown'||_i&&_i.contains(ev.target)?(
+            _input=g.ui.km.disp(ev),
+            g.ui.km.currval=_input.s,
+            g.io.log('recording input: ',ev.type),
+            ev.type==='mousedown'?g.ui.km.resetting=!0:0,
+            // TODO sync to ls and internal value
+            g.ui.km.stoprecording()
+        ):0),
+
+        // Convert input to display value
+        // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
+        g.ui.km.disp=ev=>ev.type==='keydown'?
+            (/Key[a-z]/i.test(ev.code)?{v:ev.code,s:ev.code.slice(-1)}:{v:ev.code,s:ev.code})
+            :ev.type==='mousedown'?
+            (_b=ev.buttons,_b&1?{v:1,s:'Left Click'}:_b&2?{v:2,s:'Right Click'}:_b&4?{v:4,s:'Middle Click'}:{v:null,s:'Unknown'})
+            :(console.error('Unknown input type; value cannot be displayed.'),{v:null,s:'Unknown'}),
 
         // TODO: if clicking on in-built keybind, relay that event further on.
         // Called when clicking inside the menu.
         // Cancel the recording if outside the current recording field.
         // Start new recording if clicking inside field that isn't being edited.
-        g.ui.km.handlemenuclk=(ev,tgt=null)=>g.ui.km.current&&(!tgt||g.ui.km.current===tgt)?(
-            _i=g.ui.km.current[g.qs]('.settings-input-signal-reset'),
-            _i&&!_i.contains(ev.target)?(
-                g.io.log('cancel recording'),
-                g.ui.km.stoprecording(),
-                !0
-            ):!1
-        ):tgt?(g.ui.km.startrecording(tgt),!0):!1,
+        g.ui.km.handlemenuclk=(ev,tgt=null)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
+            :(
+                g.ui.km.current&&(!tgt||g.ui.km.current===tgt)?(
+                    _i=g.ui.km.getinputfield(g.ui.km.current),
+                    _i&&!_i.contains(ev.target)?(
+                        g.io.log('cancel recording'),
+                        g.ui.km.stoprecording(),
+                        !0
+                    )
+                    :_i&&_i.contains(ev.target)?!0:!1
+                ):tgt?(g.ui.km.startrecording(tgt),!0):!1
+            ),
 
         // Find keybind setting that has target as the input field
         g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row.mod-entry')].filter(x=>g.ui.iskeybind(x)&&x.lastChild.contains(el)),_s.length?_s[0]:null),
@@ -360,6 +384,11 @@
                 g.ui.out.menu.focus=!0,
                 _res=g.ui.km.handlemenuclk(ev,_el),
                 _res
+            )
+            :['keydown','mousedown'].includes(ev.type)&&g.ui.km.current?(
+                // Record input
+                g.ui.km.recordinput(ev),
+                !0
             ):!1
         ),
 
@@ -371,16 +400,11 @@
         // Stop current keyrecordings (also regular keybind setting)
         g.ui.km.stopcurrentrecording=_=>(g.ui.km.current?(g.ui.km.finishrecording(g.ui.km.current)):0,[...g.ui.out.menu.ss[g.qsa]('.settings-input-row:not(.mod-entry) .settings-input-signal-reset')].forEach(x=>g.io.fakemseclk(x))),
 
+        // Get editing text depending on input type.
+        g.ui.km.geteditingtext=it=>!it||it===g.ui.inputtypes[0]?'press a key...':it===g.ui.inputtypes[1]?'click a button...':it===g.ui.inputtypes[2]?'press a button...':'enter input...',
 
-        // g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
-        // g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
-        //
-        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),_field=el[g.qs]('.settings-input-signal'),g.ui.km.currval=_field[g.it],_field[g.it]='press a key...',_field.classList.add('settings-input-signal-reset'),g.ui.km.current=el):0,
+        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),_field=el[g.qs]('.settings-input-signal'),g.ui.km.currval=_field[g.it],_field[g.it]=g.ui.km.geteditingtext(el.__it),_field.classList.add('settings-input-signal-reset'),g.ui.km.current=el):0,
         g.ui.km.finishrecording=el=>el?(_field=el[g.qs]('.settings-input-signal'),_field[g.it]=g.ui.km.currval,_field.classList.remove('settings-input-signal-reset'),g.ui.km.current=null):0,
-
-
-        // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
-        g.ui.km.disp=v=>/Key[a-z]/i.test(v)?v[-1]:v,
 
 
 
@@ -506,6 +530,7 @@
             var _dflt=g.ui.getlsstate(_id,d);
             _el[g.cn]=g.ui.se;
             _el.__dflt=_dflt;
+            _el.__cb=menu=>_el.__it=menu.it;
 
             var _l=g.ui.makelbl(l,tlt);
 
@@ -714,7 +739,7 @@
         g.ui.addcomponent(rt.test3,'config'),
         g.ui.addcomponent(rt.test4,'config'),
         g.ui.addcomponent(rt.test5, 'controls','controls','controls'),
-        g.ui.addcomponent(rt.test6, 'controls','controls','controls'),
+        g.ui.addcomponent(rt.test6, 'controls',null,'controls'),
 
         rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
         g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
