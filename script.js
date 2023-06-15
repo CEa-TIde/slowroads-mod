@@ -388,8 +388,7 @@
             g.ui.km.currcode=_input.v,
             g.io.log('recording input: ',ev.type),
             g.ui.km.ismouseev(ev.type)?g.ui.km.resetting=!0:0,
-            // TODO sync to ls and internal value
-            g.ui.km.stoprecording()
+            g.ui.km.stoprecording(!0)
         ):0),
 
         // Sets the value of the input field and optionally sets the edit state (if not null). The old value is returned.
@@ -446,7 +445,7 @@
         // Set focus to settings window and start recording keybind
         g.ui.km.startrecording=el=>(g.ui.out.focus(),g.io.log('starting recording...'),g.ui.km.setuprecording(el)),
         // Stop recording of keybind and return focus to evroot
-        g.ui.km.stoprecording=_=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current)),
+        g.ui.km.stoprecording=(savebind=!1)=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current,savebind)),
 
         // Stop current keyrecordings (also regular keybind setting)
         g.ui.km.stopcurrentrecording=_=>(g.ui.km.current?(g.ui.km.finishrecording(g.ui.km.current)):0,[...g.ui.out.menu.ss[g.qsa]('.settings-input-row:not(.mod-entry) .settings-input-signal-reset')].forEach(x=>g.io.fakemseclk(x))),
@@ -455,7 +454,7 @@
         g.ui.km.geteditingtext=it=>!it||it===g.ui.inputtypes[0]?'press a key...':it===g.ui.inputtypes[1]?'click a button...':it===g.ui.inputtypes[2]?'press a button...':'enter input...',
 
         g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),g.ui.km.currstrval=g.ui.km.setvalue(el,g.ui.km.geteditingtext(el.__it),!0),g.ui.km.current=el):0,
-        g.ui.km.finishrecording=el=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1),g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
+        g.ui.km.finishrecording=(el,savebind=!1)=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1),savebind&&g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
 
 
 
