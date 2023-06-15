@@ -332,16 +332,16 @@
 
 
         // Responsible for recording of keybind
-        g.ui.km={lsname:'modkeybinds',inputbinds:{}},
-        
+        g.ui.km={inputbinds:{},nameidmap:{}},
+
         // Set initial input bind. Not synced with local storage here, as it is the default.
-        g.ui.km.initbind=(n,key=null,mouse=null,pad=null)=>(g.ui.km.inputbinds[n]={key:key,mouse:mouse,pad:pad}),
+        g.ui.km.initbind=(id,n,key=null,mouse=null,pad=null)=>(g.ui.km.nameidmap[n]=id,g.ui.km.inputbinds[id]={key:key,mouse:mouse,pad:pad}),
         // convert input type to respective value in [key, mouse, pad]
         g.ui.km.parsebindtype=it=>['key','mouse','pad'].includes(it)?it:it===g.ui.inputtypes[0]?'key':it===g.ui.inputtypes[1]?'mouse':it===g.ui.inputtypes[2]?'pad':'unknown',
         // set bind and sync with local storage
-        g.ui.km.setbind=(n,it,v)=>(g.ui.km.inputbinds[n][g.ui.km.parsebindtype(it)]=v,g.ls.setkey(g.ui.km.lsname,n,g.ui.km.inputbinds[n])),
+        g.ui.km.setbind=(n,it,v)=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]=v,g.ls.setkey(g.ui.lsn_ststates,_id,g.ui.km.inputbinds[_id])),
         // get bind
-        g.ui.km.getbind=(n,it='key')=>g.ui.km.inputbinds[n][g.ui.km.parsebindtype(it)],
+        g.ui.km.getbind=(n,it='key')=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]),
         // Check if bind is activated.
         g.ui.km.iskeyev=type=>['keydown','keypress','keyup'].includes(type),
         g.ui.km.ismouseev=type=>['mousedown','mouseup','mousemove','mouseleave','mouseout','mouseover','click'].includes(type),
@@ -369,19 +369,27 @@
             g.ui.km.stoprecording()
         ):0),
 
-        // Set 
-        // g.ui.km.setvalue=(el,ev)=>0,
+        // Sets the value of the inputbind and optionally sets the edit state (if not null). The old value is returned.
+        g.ui.km.setvalue=(el,v,editstate=null)=>(
+            g.ui.km.setbind(el.__cname,el.__it,v),
+            _field=g.ui.km.getinputfield(el),
+            _old=_field[g.it],
+            _field[g.it]=v!==null?v:'',
+            editstate!==null?_field.classList[editstate?'add':'remove']('settings-input-signal-reset'):0,
+            _old
+        ),
 
         // Clear value of the element
-        g.ui.km.clear=el=>g.io.log('clearing input',el),
+        g.ui.km.clearbind=el=>(g.io.log('clearing input',el),g.ui.km.setvalue(el,null)),
 
         // Convert event to display value and code
         // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
+        // TODO gamepad input
         g.ui.km.disp=ev=>ev.type==='keydown'?
-            (/Key[a-z]/i.test(ev.code)?{t:0,v:ev.code,s:ev.code.slice(-1)}:{t:0,v:ev.code,s:ev.code})
+            (/Key[a-z]/i.test(ev.code)?{t:'key',v:ev.code,s:ev.code.slice(-1)}:{t:'key',v:ev.code,s:ev.code})
             :ev.type==='mousedown'?
-            (_b=ev.buttons,_b&1?{t:1,v:1,s:'Left Click'}:_b&2?{t:1,v:2,s:'Right Click'}:_b&4?{t:1,v:4,s:'Middle Click'}:{t:1,v:null,s:'Unknown'})
-            :(console.error('Unknown input type; value cannot be displayed.'),{t:-1,v:null,s:'Unknown'}),
+            (_b=ev.buttons,_b&1?{t:'mouse',v:1,s:'Left Click'}:_b&2?{t:'mouse',v:2,s:'Right Click'}:_b&4?{t:'mouse',v:4,s:'Middle Click'}:{t:'mouse',v:null,s:'Unknown'})
+            :(console.error('Unknown input type; value cannot be displayed.'),{t:null,v:null,s:'Unknown'}),
 
         // TODO: if clicking on in-built keybind, relay that event further on.
         // TODO: if clicking on input type or tab, relay that event further on.
@@ -433,8 +441,8 @@
         // Get editing text depending on input type.
         g.ui.km.geteditingtext=it=>!it||it===g.ui.inputtypes[0]?'press a key...':it===g.ui.inputtypes[1]?'click a button...':it===g.ui.inputtypes[2]?'press a button...':'enter input...',
 
-        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),_field=el[g.qs]('.settings-input-signal'),g.ui.km.currval=_field[g.it],_field[g.it]=g.ui.km.geteditingtext(el.__it),_field.classList.add('settings-input-signal-reset'),g.ui.km.current=el):0,
-        g.ui.km.finishrecording=el=>el?(_field=el[g.qs]('.settings-input-signal'),_field[g.it]=g.ui.km.currval,_field.classList.remove('settings-input-signal-reset'),g.ui.km.current=null):0,
+        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),g.ui.km.currval=g.ui.km.setvalue(el,g.ui.km.geteditingtext(el.__it),!0),g.ui.km.current=el):0,
+        g.ui.km.finishrecording=el=>el?(g.ui.km.setvalue(el,g.ui.km.currval,!1),g.ui.km.current=null):0,
 
 
 
@@ -560,7 +568,8 @@
             var _dflt=g.ui.getlsstate(_id,d);
             _el[g.cn]=g.ui.se;
             _el.__dflt=_dflt;
-            g.ui.km.initbind(cname,_dflt.key,_dflt.mouse,_dflt.pad);
+            _el.__cname=cname;
+            g.ui.km.initbind(_id,cname,_dflt.key,_dflt.mouse,_dflt.pad);
             // Set up when adding inputbind to settings window. 
             _el.__cb=menu=>(_el.__it=menu.it,_i[g.it]=g.ui.km.getbind(cname,menu.it));
 
@@ -579,7 +588,7 @@
             g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev,_el),_i,!0);
 
             // Clear input when clicking on X. Is ignored when editing inputbind (cancels edit instead)
-            g.io.msedn(ev=>g.ui.km.clear(_el),_c,!0);
+            g.io.msedn(ev=>g.ui.km.clearbind(_el),_c,!0);
 
             _el[g.ap](_l,_c,_i);
             return _el
