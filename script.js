@@ -364,8 +364,9 @@
         
         // Convert code to string value
         g.ui.km.parsecode=(type,code)=>
-            type=='key'?g.ui.km.parsekey(code).s
-            :type=='mouse'?g.ui.km.parsekey(code).s
+            code===null?''
+            :type=='key'?g.ui.km.parsekey(code).s
+            :type=='mouse'?g.ui.km.parsemouse(code).s
             :type=='pad'?g.ui.km.parsepad(code).s
             :'Unknown',
         
@@ -381,8 +382,8 @@
         g.ui.km.getinputfield=el=>el[g.qs]('.settings-input-signal'),
         g.ui.km.getclearbttn=el=>el[g.qs]('.settings-input-signal-clear'),
 
-        // TODO ev null check
         g.ui.km.recordinput=ev=>(_i=g.ui.km.getinputfield(g.ui.km.current),ev.type!=='mousedown'||_i&&_i.contains(ev.target)?(
+            ev.preventDefault(),
             _input=g.ui.km.parseevent(ev),
             g.ui.km.currstrval=_input.s,
             g.ui.km.currcode=_input.v,
