@@ -342,18 +342,40 @@
         g.ui.km.setbind=(n,it,v)=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]=v,g.ls.setkey(g.ui.lsn_ststates,_id,g.ui.km.inputbinds[_id])),
         // get bind
         g.ui.km.getbind=(n,it='key')=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]),
-        // Check if bind is activated.
+        
         g.ui.km.iskeyev=type=>['keydown','keypress','keyup'].includes(type),
         g.ui.km.ismouseev=type=>['mousedown','mouseup','mousemove','mouseleave','mouseout','mouseover','click'].includes(type),
         g.ui.km.ispadev=type=>!1, // TODO
+        // Check if bind is activated.
         g.ui.km.checkbind=(n,ev)=>
             g.ui.km.iskeyev(ev.type)?ev.code===g.ui.km.getbind(n,'key')
             :g.ui.km.ismouseev(ev.type)?ev.buttons&g.ui.km.getbind(n,'mouse')
             :g.ui.km.ispadev(ev.type)?!1 // TODO
             :!1,
+        
+        // Convert event to display value and code
+        // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
+        // TODO gamepad input
+        g.ui.km.parseevent=ev=>
+            g.ui.km.iskeyev(ev.type)?g.ui.km.parsekey(ev.code)
+            :g.ui.km.ismouseev(ev.type)?g.ui.km.parsemouse(ev.buttons)
+            :g.ui.km.ispadev(ev.type)?g.ui.km.parsepad(ev)
+            :(console.error('Unknown input type; value cannot be displayed.'),{t:null,v:null,s:'Unknown'}),
+        
+        // Convert code to string value
+        g.ui.km.parsecode=(type,code)=>
+            type=='key'?g.ui.km.parsekey(code).s
+            :type=='mouse'?g.ui.km.parsekey(code).s
+            :type=='pad'?g.ui.km.parsepad(code).s
+            :'Unknown',
+        
+        g.ui.km.parsekey=code=>/Key[a-z]/i.test(code)?{t:'key',v:code,s:code.slice(-1)}:{t:'key',v:code,s:code},
+        g.ui.km.parsemouse=bttn=>bttn&1?{t:'mouse',v:1,s:'Left Click'}:bttn&2?{t:'mouse',v:2,s:'Right Click'}:bttn&4?{t:'mouse',v:4,s:'Middle Click'}:{t:'mouse',v:null,s:'Unknown'},
+        g.ui.km.parsepad=bttn=>({t:'pad',v:null,s:'unknown'}),
 
         g.ui.km.current=null,
-        g.ui.km.currval=null,
+        g.ui.km.currstrval=null,
+        g.ui.km.currcode=null,
         g.ui.km.resetting=!1,
 
         g.ui.km.getinputfield=el=>el[g.qs]('.settings-input-signal'),
@@ -361,35 +383,26 @@
 
         // TODO ev null check
         g.ui.km.recordinput=ev=>(_i=g.ui.km.getinputfield(g.ui.km.current),ev.type!=='mousedown'||_i&&_i.contains(ev.target)?(
-            _input=g.ui.km.disp(ev),
-            g.ui.km.currval=_input.s,
+            _input=g.ui.km.parseevent(ev),
+            g.ui.km.currstrval=_input.s,
+            g.ui.km.currcode=_input.v,
             g.io.log('recording input: ',ev.type),
-            ev.type==='mousedown'?g.ui.km.resetting=!0:0,
+            g.ui.km.ismouseev(ev.type)?g.ui.km.resetting=!0:0,
             // TODO sync to ls and internal value
             g.ui.km.stoprecording()
         ):0),
 
-        // Sets the value of the inputbind and optionally sets the edit state (if not null). The old value is returned.
-        g.ui.km.setvalue=(el,v,editstate=null)=>(
-            g.ui.km.setbind(el.__cname,el.__it,v),
+        // Sets the value of the input field and optionally sets the edit state (if not null). The old value is returned.
+        g.ui.km.setvalue=(el,str,editstate=null)=>(
             _field=g.ui.km.getinputfield(el),
             _old=_field[g.it],
-            _field[g.it]=v!==null?v:'',
+            _field[g.it]=str!==null?str:'',
             editstate!==null?_field.classList[editstate?'add':'remove']('settings-input-signal-reset'):0,
             _old
         ),
 
         // Clear value of the element
         g.ui.km.clearbind=el=>(g.io.log('clearing input',el),g.ui.km.setvalue(el,null)),
-
-        // Convert event to display value and code
-        // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
-        // TODO gamepad input
-        g.ui.km.disp=ev=>ev.type==='keydown'?
-            (/Key[a-z]/i.test(ev.code)?{t:'key',v:ev.code,s:ev.code.slice(-1)}:{t:'key',v:ev.code,s:ev.code})
-            :ev.type==='mousedown'?
-            (_b=ev.buttons,_b&1?{t:'mouse',v:1,s:'Left Click'}:_b&2?{t:'mouse',v:2,s:'Right Click'}:_b&4?{t:'mouse',v:4,s:'Middle Click'}:{t:'mouse',v:null,s:'Unknown'})
-            :(console.error('Unknown input type; value cannot be displayed.'),{t:null,v:null,s:'Unknown'}),
 
         // TODO: if clicking on in-built keybind, relay that event further on.
         // TODO: if clicking on input type or tab, relay that event further on.
@@ -431,9 +444,9 @@
         ),
 
         // Set focus to settings window and start recording keybind
-        g.ui.km.startrecording=el=>(g.ui.out.focus(),g.io.log('starting recording...'),g.ui.km.setuprecording(el)), // TODO
+        g.ui.km.startrecording=el=>(g.ui.out.focus(),g.io.log('starting recording...'),g.ui.km.setuprecording(el)),
         // Stop recording of keybind and return focus to evroot
-        g.ui.km.stoprecording=_=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current)), // TODO
+        g.ui.km.stoprecording=_=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current)),
 
         // Stop current keyrecordings (also regular keybind setting)
         g.ui.km.stopcurrentrecording=_=>(g.ui.km.current?(g.ui.km.finishrecording(g.ui.km.current)):0,[...g.ui.out.menu.ss[g.qsa]('.settings-input-row:not(.mod-entry) .settings-input-signal-reset')].forEach(x=>g.io.fakemseclk(x))),
@@ -441,8 +454,8 @@
         // Get editing text depending on input type.
         g.ui.km.geteditingtext=it=>!it||it===g.ui.inputtypes[0]?'press a key...':it===g.ui.inputtypes[1]?'click a button...':it===g.ui.inputtypes[2]?'press a button...':'enter input...',
 
-        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),g.ui.km.currval=g.ui.km.setvalue(el,g.ui.km.geteditingtext(el.__it),!0),g.ui.km.current=el):0,
-        g.ui.km.finishrecording=el=>el?(g.ui.km.setvalue(el,g.ui.km.currval,!1),g.ui.km.current=null):0,
+        g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),g.ui.km.currstrval=g.ui.km.setvalue(el,g.ui.km.geteditingtext(el.__it),!0),g.ui.km.current=el):0,
+        g.ui.km.finishrecording=el=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1),g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
 
 
 
@@ -571,7 +584,12 @@
             _el.__cname=cname;
             g.ui.km.initbind(_id,cname,_dflt.key,_dflt.mouse,_dflt.pad);
             // Set up when adding inputbind to settings window. 
-            _el.__cb=menu=>(_el.__it=menu.it,_i[g.it]=g.ui.km.getbind(cname,menu.it));
+            _el.__cb=menu=>(
+                _el.__it=menu.it,
+                _type=g.ui.km.parsebindtype(menu.it),
+                _val=g.ui.km.getbind(cname,menu.it),
+                _i[g.it]=g.ui.km.parsecode(_type,_val)
+            );
 
             var _l=g.ui.makelbl(l,tlt);
 
