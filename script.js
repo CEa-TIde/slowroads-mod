@@ -310,7 +310,6 @@
 
                     // Add event listeners for switching input types and tabs
                     // Menu should be redrawn in that case
-                    // TODO: cancel keybind focus
                     _it=g.dc[g.qs]('.settings-sidebar_options'),_tab=g.dc[g.qs]('.settings-sidebar_tabs'),
                     _e=async _=>(await g.wait(1),g.ui.out.drawmenu(m),g.ui.out.menucbhandler()),
                     _it?g.io.msedn(_e,_it):0,
@@ -361,7 +360,6 @@
         
         // Convert event to display value and code
         // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
-        // TODO gamepad input
         g.ui.km.parseevent=ev=>
             g.ui.km.iskeyev(ev.type)?g.ui.km.parsekey(ev.code)
             :g.ui.km.ismouseev(ev.type)?g.ui.km.parsemouse(ev.buttons)
@@ -399,10 +397,10 @@
         ):0),
 
         // Sets the value of the input field and optionally sets the edit state (if not null). The old value is returned.
-        g.ui.km.setvalue=(el,str,editstate=null)=>(
+        g.ui.km.setvalue=(el,str,editstate=null,writeres=!0)=>(
             _field=g.ui.km.getinputfield(el),
             _old=_field[g.it],
-            _field[g.it]=str!==null?str:'',
+            writeres?_field[g.it]=str!==null?str:'':0,
             editstate!==null?_field.classList[editstate?'add':'remove']('settings-input-signal-reset'):0,
             _old
         ),
@@ -410,51 +408,48 @@
         // Clear value of the element
         g.ui.km.clearbind=el=>(g.io.log('clearing input',el),g.ui.km.setvalue(el,null),g.ui.km.setbind(el.__cname,el.__it,null)),
 
-        // TODO: if clicking on in-built keybind, relay that event further on.
-        // TODO: if clicking on input type or tab, relay that event further on.
-        // Called when clicking inside the menu.
-        // Cancel the recording if outside the current recording field.
-        // Start new recording if clicking inside field that isn't being edited.
-        g.ui.km.handlemenuclk=(ev,tgt=null,ismod=!0)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
+        g.ui.km.handlemenuclk=(ev,tgt=null,ismod=!0,istabswitching=!1)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
             :(
-                g.ui.km.current&&(!tgt||g.ui.km.current===tgt)?(
-                    _i=g.ui.km.getinputfield(g.ui.km.current),
+                g.ui.km.current&&(!tgt||!ismod||g.ui.km.current==tgt)?(
+                    _i_=g.ui.km.getinputfield(g.ui.km.current),
                     _i&&!_i.contains(ev.target)?(
                         g.io.log('cancel recording'),
-                        g.ui.km.stoprecording(),
+                        g.ui.km.stoprecording(!1,!istabswitching),
                         ismod?!0:!1
                     )
                     :_i&&_i.contains(ev.target)?!0:!1
                 )
-                // if target specified, if new field is also modded ui, start recording that, stop recording otherwise.
-                :tgt?ismod?(g.ui.km.startrecording(tgt),!0):(g.ui.km.stoprecording(),!1):!1
+                :tgt?(g.ui.km.startrecording(tgt),!0):!1
             ),
 
         // Find keybind setting that has target as the input field
         g.ui.km.findsetting=(ss,el)=>(_s=[...ss[g.qsa]('.settings-input-row')].filter(x=>g.ui.iskeybind(x)&&g.ui.km.getinputfield(x)?.contains(el)),_s.length?_s[0]:null),
 
+        g.ui.km.isswitchingtab=(ss,tgt)=>(_tabs=ss[g.qs]('.settings-sidebar_tabs'),_it=ss[g.qs]('.settings-sidebar_options'),_tabs&&_tabs.contains(tgt)||_it&&_it.contains(tgt)),
+
         // Handle all input events inside settings window when recording
         g.ui.km.handleinput=ev=>(
             _el=g.ui.km.findsetting(g.ui.out.menu.ss,ev.target),
-            _ismod=_el&&_el.classList.contains('mod-entry'),
-            _ismod?_el=null:0,
+            _ismod=_el&&_el.classList.contains('mod-entry')||!1,
+            _isswitching=g.ui.km.isswitchingtab(g.ui.out.menu.ss,ev.target),
+            // _ismod?_el=null:0,
             ev.type==='click'?(
                 // Set focus to window (mirrored from other input handler)
                 g.ui.out.menu.focus=!0,
-                _res=g.ui.km.handlemenuclk(ev,_el,_ismod),
+                _res=g.ui.km.handlemenuclk(ev,_el,_ismod,_isswitching),
                 _res
             )
             :['keydown','mousedown'].includes(ev.type)&&g.ui.km.current?(
                 // Record input
                 g.ui.km.recordinput(ev),
-                !0
+                _isswitching?!1:!0
             ):!1
         ),
 
         // Set focus to settings window and start recording keybind
         g.ui.km.startrecording=el=>(g.ui.out.focus(),g.io.log('starting recording...'),g.ui.km.setuprecording(el)),
         // Stop recording of keybind and return focus to evroot
-        g.ui.km.stoprecording=(savebind=!1)=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current,savebind)),
+        g.ui.km.stoprecording=(savebind=!1,writeres=!0)=>(g.ui.out.unfocus(),g.ui.km.finishrecording(g.ui.km.current,savebind,writeres)),
 
         // Stop current keyrecordings (also regular keybind setting)
         g.ui.km.stopcurrentrecording=_=>(g.ui.km.current?(g.ui.km.finishrecording(g.ui.km.current)):0,[...g.ui.out.menu.ss[g.qsa]('.settings-input-row:not(.mod-entry) .settings-input-signal-reset')].forEach(x=>g.io.fakemseclk(x))),
@@ -463,10 +458,10 @@
         g.ui.km.geteditingtext=it=>!it||it===g.ui.inputtypes[0]?'press a key...':it===g.ui.inputtypes[1]?'click a button...':it===g.ui.inputtypes[2]?'press a button...':'enter input...',
 
         g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),g.ui.km.currstrval=g.ui.km.setvalue(el,g.ui.km.geteditingtext(el.__it),!0),g.ui.km.current=el):0,
-        g.ui.km.finishrecording=(el,savebind=!1)=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1),savebind&&g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
+        g.ui.km.finishrecording=(el,savebind=!1,writeres=!0)=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1,writeres),savebind&&g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
 
 
-        
+
         //-----------------------------------------------------------------------------------------------------
 
 
