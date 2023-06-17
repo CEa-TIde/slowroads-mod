@@ -358,6 +358,11 @@
             :g.ui.km.ispadev(ev.type)?!1 // TODO
             :!1,
         
+        g.ui.km.iscorrecttype=(evtype,bindtype)=>(
+            _bt=g.ui.km.parsebindtype(bindtype),
+            g.ui.km.iskeyev(evtype)&&_bt=='key'||g.ui.km.ismouseev(evtype)&&_bt=='mouse'||g.ui.km.ispadev(evtype)&&_bt=='pad'
+        ),
+        
         // Convert event to display value and code
         // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
         g.ui.km.parseevent=ev=>
@@ -411,7 +416,7 @@
         g.ui.km.handlemenuclk=(ev,tgt=null,ismod=!0,istabswitching=!1)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
             :(
                 g.ui.km.current&&(!tgt||!ismod||g.ui.km.current==tgt)?(
-                    _i_=g.ui.km.getinputfield(g.ui.km.current),
+                    _i=g.ui.km.getinputfield(g.ui.km.current),
                     _i&&!_i.contains(ev.target)?(
                         g.io.log('cancel recording'),
                         g.ui.km.stoprecording(!1,!istabswitching),
@@ -441,7 +446,7 @@
             )
             :['keydown','mousedown'].includes(ev.type)&&g.ui.km.current?(
                 // Record input
-                g.ui.km.recordinput(ev),
+                g.ui.km.iscorrecttype(ev.type,g.ui.out.menu.it)?g.ui.km.recordinput(ev):0,
                 _isswitching?!1:!0
             ):!1
         ),
@@ -759,30 +764,30 @@
             (ev,name)=>g.io.tvis(rt.ui,s=>(rt.hidden=!s,rt.started=!1)),
             'Toggle the visibility of the Road Time Display.'),
 
-        rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
-        rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
-        rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
-        rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.io.log(e),'Test label'),
-        rt.test5=g.ui.makeinputbind('Test keybind','test1',{key:'KeyB',mouse:null,pad:null},
-            (ev,name)=>g.io.log('Test. Pressed test 1 keybind'),
-            'Test label'),
-        rt.test6=g.ui.makeinputbind('Test keybind 2','test2',{key:'KeyC',mouse:null,pad:null},
-            (ev,name)=>g.io.log('Test. Pressed test 2 keybind'),
-            'Test label 2'),
+        // rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
+        // rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
+        // rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
+        // rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.io.log(e),'Test label'),
+        // rt.test5=g.ui.makeinputbind('Test keybind','test1',{key:'KeyB',mouse:null,pad:null},
+        //     (ev,name)=>g.io.log('Test. Pressed test 1 keybind'),
+        //     'Test label'),
+        // rt.test6=g.ui.makeinputbind('Test keybind 2','test2',{key:'KeyC',mouse:null,pad:null},
+        //     (ev,name)=>g.io.log('Test. Pressed test 2 keybind'),
+        //     'Test label 2'),
 
         g.ui.addcomponent(rt.st_resetoffroad,'config'),
         g.ui.addcomponent(rt.st_resetscore,'config'),
         g.ui.addcomponent(rt.kb_toggleui,'controls',null,'controls'),
 
-        g.ui.addcomponent(rt.test1,'config'),
-        g.ui.addcomponent(rt.test2,'config'),
-        g.ui.addcomponent(rt.test3,'config'),
-        g.ui.addcomponent(rt.test4,'config'),
-        g.ui.addcomponent(rt.test5,'controls','controls','controls'),
-        g.ui.addcomponent(rt.test6,'controls',null,'controls'),
+        // g.ui.addcomponent(rt.test1,'config'),
+        // g.ui.addcomponent(rt.test2,'config'),
+        // g.ui.addcomponent(rt.test3,'config'),
+        // g.ui.addcomponent(rt.test4,'config'),
+        // g.ui.addcomponent(rt.test5,'controls','controls','controls'),
+        // g.ui.addcomponent(rt.test6,'controls',null,'controls'),
 
-        rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
-        g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
+        // rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
+        // g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
 
         // Start loop roadtime
         setInterval(_=>(
