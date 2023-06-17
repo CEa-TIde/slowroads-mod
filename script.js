@@ -30,8 +30,7 @@
         //--------
         // keys: all keys that are pressed at the moment
         // ev: a list of all attached event listeners for each event type
-        // tvisels: all elements toggled by toggle keypress
-        g.io={keys:[],ev:{},tvisels:[]},
+        g.io={keys:[],ev:{}},
         // Add an event listener to the list (type is added if not already present)
         g.io.add=(type,cb,tgt=null,persistent=false)=>typeof cb!=='function'?console.error('callback specified is not a function: ',cb):(!g.io.ev[type]?g.io.ev[type]=[]:0,g.io.ev[type].push({callback:cb,target:tgt,persistent:persistent})),
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
@@ -71,12 +70,10 @@
         // Overwrite console.log function with hook so that the output can be read. Argument array is passed to the hooks.
         console.log=function(...args){g.io.log(...args);g.io.loghook(args)},
 
-        // Toggle ui
-        g.io.tvis=ev=>g.io.tvisels.forEach(x=>g.ui.km.checkbind(x.bind,ev)?(x.el.style.display=(_s=x.el.style.display=='none')?'block':'none',x.callback&&x.callback(_s)):0),
-        g.io.kydn(g.io.tvis),
-        g.io.msedn(g.io.tvis),
-        // TODO check for gamepad input
-        g.io.addtvis=(bindname,el,cb=null)=>g.io.tvisels.push({bind:bindname,el:el,callback:cb}),
+        // Toggle mod ui
+        g.io.tvis=(el,cb=null)=>(el.style.display=(_s=el.style.display=='none')?'block':'none',cb?.(_s)),
+
+        // Toggle all mod ui
         g.io.uivis=!0,
         g.io.tvisall=_=>(g.io.uivis=!g.io.uivis,g.dc[g.qsa]('.mod-ui').forEach(x=>g.io.uivis?x.classList.remove(g.hdit):x.classList.add(g.hdit))),
 
@@ -335,7 +332,16 @@
         g.ui.km={inputbinds:{},nameidmap:{}},
 
         // Set initial input bind. Not synced with local storage here, as it is the default.
-        g.ui.km.initbind=(id,n,key=null,mouse=null,pad=null)=>(g.ui.km.nameidmap[n]=id,g.ui.km.inputbinds[id]={key:key,mouse:mouse,pad:pad}),
+        g.ui.km.initbind=(id,n,e,key=null,mouse=null,pad=null)=>(g.ui.km.nameidmap[n]=id,g.ui.km.inputbinds[id]={key:key,mouse:mouse,pad:pad},g.ui.km.startlistening(id,n,e)),
+        // Add event listeners for keybind (only listens when inputbind is added to a menu)
+        g.ui.km.startlistening=(id,name,e)=>{
+            var _handler=ev=>g.ui.addedcomponents.includes(id)&&g.ui.km.checkbind(name,ev)?e(ev,name):0;
+            g.io.kydn(_handler);
+            g.io.msedn(_handler);
+            // TODO game pad
+        },
+
+
         // convert input type to respective value in [key, mouse, pad]
         g.ui.km.parsebindtype=it=>['key','mouse','pad'].includes(it)?it:it===g.ui.inputtypes[0]?'key':it===g.ui.inputtypes[1]?'mouse':it===g.ui.inputtypes[2]?'pad':'unknown',
         // set bind and sync with local storage
@@ -372,7 +378,7 @@
         
         g.ui.km.parsekey=code=>/Key[a-z]/i.test(code)?{t:'key',v:code,s:code.slice(-1)}:{t:'key',v:code,s:code},
         g.ui.km.parsemouse=bttn=>bttn&1?{t:'mouse',v:1,s:'Left Click'}:bttn&2?{t:'mouse',v:2,s:'Right Click'}:bttn&4?{t:'mouse',v:4,s:'Middle Click'}:{t:'mouse',v:null,s:'Unknown'},
-        g.ui.km.parsepad=bttn=>({t:'pad',v:null,s:'unknown'}),
+        g.ui.km.parsepad=bttn=>({t:'pad',v:null,s:'unknown'}),// TODO
 
         g.ui.km.current=null,
         g.ui.km.currstrval=null,
@@ -402,7 +408,7 @@
         ),
 
         // Clear value of the element
-        g.ui.km.clearbind=el=>(g.io.log('clearing input',el),g.ui.km.setvalue(el,null)),
+        g.ui.km.clearbind=el=>(g.io.log('clearing input',el),g.ui.km.setvalue(el,null),g.ui.km.setbind(el.__cname,el.__it,null)),
 
         // TODO: if clicking on in-built keybind, relay that event further on.
         // TODO: if clicking on input type or tab, relay that event further on.
@@ -511,7 +517,7 @@
 
         g.ui.deselect=el=>(_x=el[g.cn]).includes('input-type_dropdown')||_x.includes('input-type_keybind')?('close the dropdown or stop keybind'):0,
 
-        g.ui.add=e=>(e[g.cn]='mod-ui',g.bd[g.ap](e)),
+        g.ui.addui=el=>(el[g.cn]='mod-ui',g.bd[g.ap](el)),
 
         // change toggle to clicked state, and call callback function with either 0 or 1 given the new state (not checked if state changed)
         g.ui.toggle=(t,o,e)=>(t.children[+!o].classList.remove('bool_selected'),t.children[o].classList.add('bool_selected'),e(o)),
@@ -549,6 +555,8 @@
         // creation of ui components
         //
 
+        g.ui.addedcomponents=[],
+
         // Assigns unique id to element and adds id to element list. Returns assigned id.
         g.ui.addelem=el=>(el.__id=g.ui.uid++,g.ui.elslst[el.__id]=el,el.__id),
         // Triggers callback function and after that updates the localstorage value based on the new state.
@@ -560,7 +568,7 @@
         // tab is the name that specifies which tab it should be added to. If it is null, it is added to all tabs.
         // Each element is also assigned a UID so that the state can be loaded from/saved in localstorage. It is incremented with each added element. Only this id is stored in this structure, so that it can be added to multiple tabs.
         g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
-            (_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
+            (g.ui.addedcomponents.push(el.__id),_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
             :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
 
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
@@ -575,14 +583,14 @@
             return _el
         },
 
-        g.ui.makeinputbind=(l,cname,d,tlt='')=>{
+        g.ui.makeinputbind=(l,cname,d,e,tlt='')=>{
             var _el=g.div();
             var _id=g.ui.addelem(_el);
             var _dflt=g.ui.getlsstate(_id,d);
             _el[g.cn]=g.ui.se;
             _el.__dflt=_dflt;
             _el.__cname=cname;
-            g.ui.km.initbind(_id,cname,_dflt.key,_dflt.mouse,_dflt.pad);
+            g.ui.km.initbind(_id,cname,e,_dflt.key,_dflt.mouse,_dflt.pad);
             // Set up when adding inputbind to settings window. 
             _el.__cb=menu=>(
                 _el.__it=menu.it,
@@ -739,7 +747,10 @@
 
         // Add global input binds
 
+        g.toggledebug=_=>(_u=g.uidebug.classList,_f=g.fpscnt.classList,(g.f3open=!g.f3open)?(_u.remove(g.hdit),_f.remove(g.hdit)):(_u.add(g.hdit),_f.add(g.hdit))),
+        // Add proxy F3 menu key (F2 by default)
         g.ui.kb_debug=g.ui.makeinputbind('Toggle debug menu (alt)','debug',{key:'F2',mouse:null,pad:null},
+            (ev,name)=>g.toggledebug(),
             'Toggle the visibility of the debug menu. This needs to be a different inputbind than the normal debug menu hotkey, for this mod to work'),
         g.ui.addcomponent(g.ui.kb_debug,'controls',null,'controls'),
 
@@ -748,9 +759,6 @@
 
         //open and hide debug menus
         g.hasdebugopen()?g.f3open=!0:(await g.io.fakekey(g.evroot,{"code":g.ls.keybind('ToggleDebug','F3')}),g.uidebug.classList.add(g.hdit),g.fpscnt.classList.add(g.hdit),g.f3open=!1),
-        
-        // Add proxy F3 menu key (F2)
-        g.io.kydn(ev=>g.ui.km.checkbind('debug',ev)?(_u=g.uidebug.classList,_f=g.fpscnt.classList,(g.f3open=!g.f3open)?(_u.remove(g.hdit),_f.remove(g.hdit)):(_u.add(g.hdit),_f.add(g.hdit))):0),
 
         // Toggle ui visibility when pressing hide/show ui button (default: U)
         g.io.kyprs(e=>e.code==g.ls.keybind('ToggleUI','KeyU')?g.io.tvisall():0),
@@ -764,7 +772,7 @@
         // Add ui for error messages
         g.style='display:none;position:absolute;z-index:999;backdrop-filter:blur(10px);background:#66666666;color:white;',
         (g.errdiv=g.div()).style=g.style+'left:0;top:50%;max-width:300px;padding:5px',
-        g.ui.add(g.errdiv),
+        g.ui.addui(g.errdiv),
         g.errtocode=0,
         // Function that displays an error for a certain time  (or until another error overrides it)
         g.err=(e,t=1500)=>(clearTimeout(g.errtocode),g.errdiv[g.it]=e,g.errdiv.style.display='block',g.errtocode=setTimeout(_=>g.errdiv.style.display='none',t)),
@@ -791,19 +799,25 @@
         rt.ddiv=_ad(),
         (rt.hsdiv=_ad())[g.it]=`Highscore time: ${rt.formattime(rt.hs)}`,
         (rt.dhsdiv=_ad())[g.it]=`Highscore distance: ${rt.formatdist(rt.hsdist)}`,
-        g.ui.add(rt.ui),
+        g.ui.addui(rt.ui),
 
         // Set up setting entries
         rt.st_resetoffroad=g.ui.maketoggle('Reset when off road','on','off',1,o=>rt.resetoffroad=!o,'Enabling this will reset the vehicle when it is driven off road.'),
         rt.st_resetscore=g.ui.makebttn('Reset highscores',_=>rt.resetscore(),'Reset the highscores of time and distance on road. Be careful as this cannot be undone.'),
-        rt.kb_toggleui=g.ui.makeinputbind('Road Time Display','rt_display',{key:'Digit1',mouse:null,pad:null},'Toggle the visibility of the Road Time Display.'),
+        rt.kb_toggleui=g.ui.makeinputbind('Road Time Display','rt_display',{key:'Digit1',mouse:null,pad:null},
+            (ev,name)=>g.io.tvis(rt.ui,s=>(rt.hidden=!s,rt.started=!1)),
+            'Toggle the visibility of the Road Time Display.'),
 
         rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
         rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
         rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
         rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.io.log(e),'Test label'),
-        rt.test5=g.ui.makeinputbind('Test keybind','test1',{key:'KeyB',mouse:null,pad:null},'Test label'),
-        rt.test6=g.ui.makeinputbind('Test keybind 2','test2',{key:'KeyC',mouse:null,pad:null},'Test label 2'),
+        rt.test5=g.ui.makeinputbind('Test keybind','test1',{key:'KeyB',mouse:null,pad:null},
+            (ev,name)=>g.io.log('Test. Pressed test 1 keybind'),
+            'Test label'),
+        rt.test6=g.ui.makeinputbind('Test keybind 2','test2',{key:'KeyC',mouse:null,pad:null},
+            (ev,name)=>g.io.log('Test. Pressed test 2 keybind'),
+            'Test label 2'),
 
         g.ui.addcomponent(rt.st_resetoffroad,'config'),
         g.ui.addcomponent(rt.st_resetscore,'config'),
@@ -854,8 +868,6 @@
         ))),16), //16 = 1000/60fps
         // catch the reset key press, and driving keys
         g.io.kydn(e=>(rt.reset=e.code===g.ls.keybind('Reset','KeyR'))?rt.started=!1:['ArrowUp','ArrowDown',g.ls.keybind('Forward','KeyW'),g.ls.keybind('Backward','KeyS')].includes(e.code)?rt.started=!0:0),
-        // toggle visibility of ui with '1' key
-        g.io.addtvis('rt_display',rt.ui,s=>(rt.hidden=!s,rt.started=!1)),
 
         //---------------------------------------------------------------------------------
         // WHEEL DRIVE SWITCHER
@@ -880,18 +892,17 @@
         wd.update(await wd.getstate()),
         wd.ui[g.ap](wd.wddiv),
         g.bd[g.ap](wd.ui),
-        g.ui.add(wd.ui),
+        g.ui.addui(wd.ui),
 
-        wd.kb_toggleui=g.ui.makeinputbind('Wheel Drive Display','wd_display',{key:'Digit2',mouse:null,pad:null},'Toggle the visiblity of the Wheel Drive Display.'),
-        wd.kb_switchdrive=g.ui.makeinputbind('Switch Drive','switch_drive',{key:'KeyO',mouse:null,pad:null},'Switch between drive settings. Toggles between AWD and FWD'),
+        wd.kb_toggleui=g.ui.makeinputbind('Wheel Drive Display','wd_display',{key:'Digit2',mouse:null,pad:null},
+            (ev,name)=>g.io.tvis(wd.ui),
+            'Toggle the visiblity of the Wheel Drive Display.'),
+        wd.kb_switchdrive=g.ui.makeinputbind('Switch Drive','switch_drive',{key:'KeyO',mouse:null,pad:null},
+            async(ev,name)=>wd.update(await wd.switchstate()),
+            'Switch between drive settings. Toggles between AWD and FWD'),
 
         g.ui.addcomponent(wd.kb_toggleui,'controls',null,'controls'),
         g.ui.addcomponent(wd.kb_switchdrive,'controls',null,'controls'),
-
-        // toggle between awd and fwd
-        g.io.kydn(async ev=>g.ui.km.checkbind('switch_drive',ev)?wd.update(await wd.switchstate()):0),
-
-        g.io.addtvis('wd_display',wd.ui),
 
         //----------------------------------------------------------------------------------
         // BOOST STATE DISPLAY
@@ -899,10 +910,12 @@
 
         // Set up UI Boost state display
         (bs.ui=g.div()).style=g.style+'top:0;right:115px;padding:5px',
-        g.ui.add(bs.ui),
+        g.ui.addui(bs.ui),
         bs.ui[g.it]='BOOST OFF',
 
-        bs.kb_toggleui=g.ui.makeinputbind('Boost State Display','bs_display',{key:'Digit3',mouse:null,pad:null},'Toggle the visibility of the Boost State Display.'),
+        bs.kb_toggleui=g.ui.makeinputbind('Boost State Display','bs_display',{key:'Digit3',mouse:null,pad:null},
+            (ev,name)=>g.io.tvis(bs.ui),
+            'Toggle the visibility of the Boost State Display.'),
         g.ui.addcomponent(bs.kb_toggleui,'controls',null,'controls'),
         
 
@@ -910,8 +923,6 @@
         g.io.kydn(e=>((_m=g.ls.boosttoggled())!=bs.tmode?(bs.state=!1,bs.tmode=_m):0,e.code==g.ls.keybind('Boost','ShiftLeft')?_m?!bs.kydn?bs.ui[g.it]=(bs.kydn=!0,bs.state=!bs.state)?'BOOST ON':'BOOST OFF':0:bs.ui[g.it]='BOOST ON':0)),
         g.io.kyup(e=>e.code==g.ls.keybind('Boost','ShiftLeft')?g.ls.boosttoggled()?bs.kydn=!1:bs.ui[g.it]='BOOST OFF':0),
         // g.io.kydn(e=>e.code===g.ls.keybind('Reset','KeyR')&&bs.tmode?(bs.state=!1,bs.div[g.it]='BOOST OFF'):0),
-
-        g.io.addtvis('bs_display',bs.ui),
 
         await g.wait(100),
         g.err('SCRIPT READY',2e3)
