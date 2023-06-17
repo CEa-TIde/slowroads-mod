@@ -425,7 +425,9 @@
                         ismod?!0:!1
                     )
                     :_i&&_i.contains(ev.target)?!0:!1
-                ):tgt?(g.ui.km.startrecording(tgt),!0):!1
+                )
+                // if target specified, if new field is also modded ui, start recording that, stop recording otherwise.
+                :tgt?ismod?(g.ui.km.startrecording(tgt),!0):(g.ui.km.stoprecording(),!1):!1
             ),
 
         // Find keybind setting that has target as the input field
@@ -464,53 +466,7 @@
         g.ui.km.finishrecording=(el,savebind=!1)=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1),savebind&&g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
 
 
-
-
-
-        // Set up keybinds settings for mod
-        // instead save when settings change + reset button
-        // g.ls.set('modkeybinds',g.km.b),
-        // g.km={lsname:'modkeybinds',default:{'Road Time Display':'Digit1','Drive Switch Display':'Digit2','Switch Drive':'KeyO','Boost Display':'Digit3','Debug':'F2'}},
-        // (g.km.todefault=_=>g.km.b=g.ls.get(g.km.lsname)||(_x={},Object.entries(g.km.default).forEach(x=>_x[x[0]]=x[1]),_x))(),
-        // // The order that the properties are displayed in the settings (reversed because it is added in reverse order)
-        // g.km.order=['Road Time Display','Drive Switch Display','Boost Display','Switch Drive','Debug'].reverse(),
-        // // Select the keybinds menu icon
-        // g.km.menu=g.ui.geticon('controls'),
-        // // Set a keybind and sync to local storage
-        // g.km.setkey=(k,v)=>(g.km.b[k]=v,g.ls.set(g.km.lsname,g.km.b)),
-        // // stores the label and field of the field being edited
-        // g.km.ed=['',null],
-        // g.km.stopedit=_=>(_l=g.km.ed[0])!=''?((_f=g.km.ed[1])[g.it]=g.km.b[_l],_f.classList.remove('settings-input-signal-reset'),g.km.ed=['',null]):0,
-        // // Start editing the selected field; if the field was already being edited, stop editing instead. If another field is already being edited, stop editing that first.
-        // g.km.beginedit=(s,l,f)=>g.km.ed[0]!=l[g.it]?(g.km.stopedit(),f[g.it]='press any key...',f.classList.add('settings-input-signal-reset'),s.focus(),g.km.ed=[l[g.it],f]):g.km.stopedit(),
-        // g.km.aelbeginedit=(s,l,f)=>g.io.msedn(_=>g.km.beginedit(s,l,f),f),
-        // g.km.edit=e=>g.km.ed[1]?(g.io.log(e.code),g.km.setkey(e.code),g.km.ed[1][g.it]=e.code,g.km.stopedit()):0,
-        // g.km.aeledit=f=>f[g.ael]('keydown',g.km.edit),
-        // // Add listener for clear button
-        // g.km.aelclear=(c,l,f)=>g.io.msedn(_=>(g.km.stopedit(),f[g.it]='',g.km.setkey(l[g.it],'')),c),
-        // // Create entry with a name and value, and prepend to settings
-        // g.km.makeentry=(s,n,v)=>((_e=g.div())[g.cn]=g.ui.se,(_l=g.div())[g.cn]='settings-input-label',_l[g.it]=n,(_c=g.div())[g.cn]='settings-input-signal-clear',_c[g.it]='x',(_i=g.div())[g.cn]='settings-input-signal',_i.title='Click to remap',_i[g.it]=v,
-        //     g.km.aelclear(_c,_l,_i),g.km.aelbeginedit(s,_l,_i),g.km.aeledit(_i),_e[g.ap](_l,_c,_i),s.prepend(_e),_e),
-        // // Reset all keybinds to default values and delete the local storage entry
-        // g.km.reset=_=>(g.km.stopedit(),g.km.todefault(),g.dc[g.qsa]('.settings-input-row.mod-entry .settings-input-signal').forEach((x,i)=>x[g.it]=g.km.default[g.km.order[g.km.order.length-i-1]]),g.ls.del(g.km.lsname)),
-        // // Create reset button, and prepend to settings
-        // g.km.resetbttn=s=>((_e=g.div())[g.cn]=g.ui.se,_e.id='resetbttn',_e[g.it]='Reset mod keybinds',g.io.msedn(_=>g.km.reset(),_e),s.prepend(_e),_e),
-        // // TODO add event listeners
-        // // Draw all keybind options for the mod
-        // g.km.draw=_=>(_s=g.dc[g.qs]('.settings-input-list'),_s.tabIndex=-1,_r=g.km.resetbttn(_s),g.km.order.forEach(x=>g.km.makeentry(_s,x,g.km.default[x])),0),
-
-        // // Add event listeners to test for opening keybinds menu and swapping of tabs
-        // //
-        // // Check if in both the correct tab and the correct input type (keyboard), and check if the elements aren't already present
-        // // Also add an event listener to the tab and input type switch while the menu is open
-        // g.km.chkupdate=async _=>(await g.wait(10),(_o=g.bd[g.qs]('.settings-sidebar_options'))&&g.io.msedn(g.km.chkupdate,_o),(_t=g.bd[g.qs]('.settings-sidebar_tabs'))&&g.io.msedn(g.km.chkupdate,_t),
-        //     g.dc[g.qs]('.settings-sidebar_tab.option-selected:first-child')&&g.dc[g.qs]('.settings-sidebar_option.option-selected:first-child')&&!g.dc[g.qs]('#resetbttn')?g.km.draw():0),
-        // g.io.msedn(g.km.chkupdate,g.km.menu),
-        // g.io.mseov(g.km.chkupdate,g.km.menu),
-
-
-
-
+        
         //-----------------------------------------------------------------------------------------------------
 
 
