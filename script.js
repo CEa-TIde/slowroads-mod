@@ -265,7 +265,7 @@
         g.ui.out.draw=(s,m,it,tab)=>g.ui.els.filter(x=>x.m==m&&(x.it==it||x.it=='all')&&(it!==g.ui.inputtypes[2]||g.ui.km.gp.connected)&&(x.tab==tab||x.tab=='all')).forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x.id],{m:m,it:it,tab:tab})),
 
         // Draw current open menu (also updates the current stored input type and tab names)
-        g.ui.out.drawcurrent=(ss,m)=>ss?(g.ui.out.menu.it=g.ui.getinputtype(ss),g.ui.out.menu.tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',g.ui.out.menu.it,' tab: ',g.ui.out.menu.tab,_s),
+        g.ui.out.drawcurrent=(ss,m)=>ss?(g.ui.out.menu.it=g.ui.getinputtype(ss),g.ui.out.menu.tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',g.ui.out.menu.it,' tab: ',g.ui.out.menu.tab,_s,g.ui.inputtypes[2],g.ui.km.gp.connected),
             _s?g.ui.out.draw(_s,m,g.ui.out.menu.it,g.ui.out.menu.tab):0):0,
         g.ui.out.drawmenu=m=>g.ui.out.drawcurrent(g.ui.out.menu.ss,m),
 
@@ -481,7 +481,7 @@
         g.io.ael('gamepadconnected',ev=>g.ui.km.gp.connect(ev),window),
         g.io.ael('gamepaddisconnected',ev=>g.ui.km.gp.disconnect(ev),window),
 
-        g.ui.km.gp.connect=ev=>(g.ui.km.gp.connectedids.push(ev.gamepad.index),!g.ui.km.gp.connected?(connected=!0,g.ui.km.gp.interval=setInterval(g.ui.km.gp.pollgamepad,16)):0),
+        g.ui.km.gp.connect=ev=>(g.ui.km.gp.connectedids.push(ev.gamepad.index),!g.ui.km.gp.connected?(g.ui.km.gp.connected=!0,g.ui.km.gp.interval=setInterval(g.ui.km.gp.pollgamepad,16)):0),
         g.ui.km.gp.disconnect=ev=>(g.ui.km.gp.connectedids.remove(ev.gamepad.index),g.ui.km.gp.connectedids.length<1?(g.ui.km.gp.connected=!1,clearInterval(g.ui.km.gp.interval)):0),
 
         // Loop for polling gamepad for input.
