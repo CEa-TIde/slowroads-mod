@@ -1,4 +1,4 @@
-//((?<=(.|\n))\/\/[^\n]*|\s*\n\s*)
+//((?<=(.|\n))\s*\/\/[^\n]*|\s*\n\s*)
 (async _=>
     typeof __a=='undefined'?(
         // Setup global functions
@@ -236,7 +236,7 @@
             _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(g.ui.geticon(_m)),g.ui.menulock(0)),
 
         // Open menu, manipulate settings as set by callback function, close menu
-        g.ui.changemenu=async (e,m,it=null,tab=null)=>{var _open=await g.ui.openmenu(m,it,tab);if(_open){var _v=await e();await g.ui.closemenu();return _v}return null},
+        g.ui.changemenu=async(e,m,it=null,tab=null)=>{var _open=await g.ui.openmenu(m,it,tab);if(_open){var _v=await e();await g.ui.closemenu();return _v}return null},
         
         // Get a setting in the currently open setting menu + input type + tab (sections can also be selected)
         g.ui.getsetting=n=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(
