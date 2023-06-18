@@ -460,7 +460,58 @@
         g.ui.km.setuprecording=el=>el?(g.ui.km.stopcurrentrecording(),g.ui.km.currstrval=g.ui.km.setvalue(el,g.ui.km.geteditingtext(el.__it),!0),g.ui.km.current=el):0,
         g.ui.km.finishrecording=(el,savebind=!1,writeres=!0)=>el?(g.ui.km.setvalue(el,g.ui.km.currstrval,!1,writeres),savebind&&g.ui.km.setbind(el.__cname,el.__it,g.ui.km.currcode),g.ui.km.current=null):0,
 
+        //--------------------------
+        // Tracking game pad
 
+        g.ui.km.gp={connected:!1,connectedids:[],interval:0,pressed:{}},
+
+        g.io.ael('gamepadconnected',ev=>g.ui.km.gp.connect(ev),window),
+        g.io.ael('gamepaddisconnected',ev=>g.ui.km.gp.disconnect(ev),window),
+
+        g.ui.km.gp.connect=ev=>(g.ui.km.gp.connectedids.push(ev.gamepad.index),!g.ui.km.gp.connected?(connected=!0,g.ui.km.gp.interval=setInterval(g.ui.km.gp.pollgamepad,16)):0),
+        g.ui.km.gp.disconnect=ev=>(g.ui.km.gp.connectedids.remove(ev.gamepad.index),g.ui.km.gp.connectedids.length<1?(g.ui.km.gp.connected=!1,clearInterval(g.ui.km.gp.interval)):0),
+
+        // Loop for polling gamepad for input.
+        g.ui.km.gp.pollgamepad=_=>g.ui.km.gp.connected?(
+            g.io.log('polling gamepad...'),
+            _gamepads=navigator.getGamepads(),
+            _gamepads&&_gamepads.length>0?(
+                g.io.log('gamepad(s) found. Checking if connected...'),
+                g.ui.km.gp.connectedids.forEach(id=>(
+                    _pad=_gamepads[id],
+                    // Fire events for game pad object if any buttons are pressed
+                    g.io.log('firing events for ',id),
+                    g.ui.km.gp.fireevents(pad)
+                ))
+            ):0
+        ):0,
+
+        g.ui.km.gp.setpressed=(padidx,bttnidx,val)=>(
+            _pressed=g.ui.km.gp.pressed,
+            _pressed[padidx]=_pressed[padidx]||{},
+            _pressed[padidx][bttnidx]=val
+        ),
+        g.ui.km.gp.checkpressed=(padidx,bttnidx)=>g.ui.km.gp.pressed[padidx]?.[bttnidx]||!1,
+
+        g.ui.km.gp.fireevents=pad=>(
+            pad.buttons.forEach((bttn,bttnidx)=>(
+                bttn.pressed?(
+                    g.ui.km.gp.fireevent('padbttndown',pad,bttn,bttnidx),
+                    g.ui.km.gp.setpressed(pad.index,bttnidx,!0)
+                )
+                :g.ui.km.gp.checkpressed(pad.index,bttnidx)?(
+                    g.ui.km.gp.fireevent('padbttnup',pad,bttn,idx),
+                    g.ui.km.gp.setpressed(pad.index,bttnidx,!1)
+                ):0
+            ))
+            // TODO fire events for analog sticks too
+        ),
+
+        g.ui.km.gp.fireevent=(type,pad,bttn,bttnidx)=>(
+            g.io.log('fired event for',pad,bttn),
+            _ev={type:type,pad:pad,bttn:bttn,index:bttnidx}
+
+        ),
 
         //-----------------------------------------------------------------------------------------------------
 
