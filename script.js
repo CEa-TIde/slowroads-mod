@@ -1,4 +1,4 @@
-//((?<=(.|\n))\/\/[^\n]*|\s*\n\s*)
+//((?<=(.|\n))\s*\/\/[^\n]*|\s*\n\s*)
 (async _=>
     typeof __a=='undefined'?(
         // Setup global functions
@@ -118,7 +118,7 @@
 
         //-----------------------------------------------------------------
         // functions responsible for managing ui in the menus
-        g.ui={f:null,elslst:{},els:{},uid:0,lsn_ststates:'mod_ststates',se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
+        g.ui={f:null,elslst:{},els:[],uid:0,lsn_ststates:'mod_ststates',se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
         // ids of all menu icons (part of the menu icon src). Divider is a special case for the divide line.
         g.ui.iconnames=['kofi','feedback','vol','controls','config','divider','circle'],
         // all ids of icon that have a menu attached to it.
@@ -127,8 +127,6 @@
         g.ui.noclosemenu=['kofi','divider','circle'],
         // ids of input types (part of the icon src)
         g.ui.inputtypes=['controls','controls_mouse_icon','controls_controller','all'],
-        // Setup elements data structure for each menu
-        g.ui.iconnames.forEach(x=>(g.ui.els[x]={input:{}},g.ui.inputtypes.forEach(y=>g.ui.els[x].input[y]={tab:{all:[]}}))),
 
         g.ui.geticon=m=>m=='divider'?g.dc[g.qs]('#menu-bar-right>.menu-bar-vertical-divider'):(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>g.ui.iconnames.includes(m)&&x.firstChild.src.includes(m))).length?_m[0]:null,
         g.ui.settinglist=_=>g.dc[g.qs]('#menu-bar-right>.settings-input-list'),
@@ -238,7 +236,7 @@
             _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(g.ui.geticon(_m)),g.ui.menulock(0)),
 
         // Open menu, manipulate settings as set by callback function, close menu
-        g.ui.changemenu=async (e,m,it=null,tab=null)=>{var _open=await g.ui.openmenu(m,it,tab);if(_open){var _v=await e();await g.ui.closemenu();return _v}return null},
+        g.ui.changemenu=async(e,m,it=null,tab=null)=>{var _open=await g.ui.openmenu(m,it,tab);if(_open){var _v=await e();await g.ui.closemenu();return _v}return null},
         
         // Get a setting in the currently open setting menu + input type + tab (sections can also be selected)
         g.ui.getsetting=n=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(
@@ -258,11 +256,8 @@
 
 
         // Draw elements to open menu
-        // s: settings element, m: menu string, it: input type (set to null if not applicable), tab: name of tab (set to null if not applicable)
-        g.ui.out.drawcomponent=(s,el,menu)=>(el.__cb&&el.__cb(menu),s.prepend(el)),
-        g.ui.out.drawtab=(s,it,tab,menu)=>tab?(it.tab[tab]?.forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x],menu))):0,
-        g.ui.out.drawinput=(s,m,it,tab,menu)=>it?(_it=m.input[it],g.ui.out.drawtab(s,_it,tab,menu),g.ui.out.drawtab(s,_it,'all',menu)):0,
-        g.ui.out.draw=(s,m,it,tab)=>(_m=g.ui.els[m],g.ui.out.drawinput(s,_m,it,tab,{m:m,it:it,tab:tab}),g.ui.out.drawinput(s,_m,'all',tab,{m:m,it:it,tab:tab})),
+        g.ui.out.drawcomponent=(s,el,menu)=>(el.__cb?.(menu),s.prepend(el)),
+        g.ui.out.draw=(s,m,it,tab)=>g.ui.els.filter(x=>x.m==m&&(x.it==it||x.it=='all')&&(x.tab==tab||x.tab=='all')).forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x.id],{m:m,it:it,tab:tab})),
 
         // Draw current open menu (also updates the current stored input type and tab names)
         g.ui.out.drawcurrent=(ss,m)=>ss?(g.ui.out.menu.it=g.ui.getinputtype(ss),g.ui.out.menu.tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',g.ui.out.menu.it,' tab: ',g.ui.out.menu.tab,_s),
@@ -358,6 +353,11 @@
             :g.ui.km.ispadev(ev.type)?!1 // TODO
             :!1,
         
+        g.ui.km.iscorrecttype=(evtype,bindtype)=>(
+            _bt=g.ui.km.parsebindtype(bindtype),
+            g.ui.km.iskeyev(evtype)&&_bt=='key'||g.ui.km.ismouseev(evtype)&&_bt=='mouse'||g.ui.km.ispadev(evtype)&&_bt=='pad'
+        ),
+        
         // Convert event to display value and code
         // If a letter in the alphabet, convert `Key(letter)` to just `letter` (E.g. KeyW -> W)
         g.ui.km.parseevent=ev=>
@@ -411,7 +411,7 @@
         g.ui.km.handlemenuclk=(ev,tgt=null,ismod=!0,istabswitching=!1)=>g.ui.km.resetting?(g.ui.km.resetting=!1)
             :(
                 g.ui.km.current&&(!tgt||!ismod||g.ui.km.current==tgt)?(
-                    _i_=g.ui.km.getinputfield(g.ui.km.current),
+                    _i=g.ui.km.getinputfield(g.ui.km.current),
                     _i&&!_i.contains(ev.target)?(
                         g.io.log('cancel recording'),
                         g.ui.km.stoprecording(!1,!istabswitching),
@@ -441,7 +441,7 @@
             )
             :['keydown','mousedown'].includes(ev.type)&&g.ui.km.current?(
                 // Record input
-                g.ui.km.recordinput(ev),
+                g.ui.km.iscorrecttype(ev.type,g.ui.out.menu.it)?g.ui.km.recordinput(ev):0,
                 _isswitching?!1:!0
             ):!1
         ),
@@ -513,13 +513,23 @@
         // Triggers callback function and after that updates the localstorage value based on the new state.
         g.ui.cb=(el,e,ev)=>(e(ev),(_v=g.ui.getvalue(el))!==null?g.ui.setlsstate(el.__id,_v):0),
 
+        // Insert element in element array preserving order and priority.
+        g.ui.insertelem=obj=>{
+            for(var i=0;i<g.ui.els.length;i++){
+                if(g.ui.els[i].priority>obj.priority){
+                    g.ui.els.splice(i,0,obj);
+                    return;
+                }
+            }
+            g.ui.els.push(obj);
+        },
+
         // Add component to menu under a(n optional) input type in a(n optional) tab. 
         // If an optional is not specified, it is added to all of those menu tabs (e.g. if the input type is not specified, it is added to keyboard, mouse, and controller tabs).
         // input type is a string of one of the input types specified in `g.ui.inputtypes`. If it is null, it is added to all input types.
         // tab is the name that specifies which tab it should be added to. If it is null, it is added to all tabs.
-        // Each element is also assigned a UID so that the state can be loaded from/saved in localstorage. It is incremented with each added element. Only this id is stored in this structure, so that it can be added to multiple tabs.
-        g.ui.addcomponent=(el,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
-            (g.ui.addedcomponents.push(el.__id),_it=g.ui.inputtypes.includes(it)?it:'all',_m=g.ui.els[m],_tab=tab||'all',_t=_m.input[_it].tab,!_t[_tab]?_t[_tab]=[]:0,_t[_tab].push(el.__id))
+        g.ui.addcomponent=(el,priority,m,it=null,tab=null)=>g.ui.menunames.includes(m)?
+            (g.ui.addedcomponents.push(el.__id),g.ui.insertelem({id:el.__id,m:m,it:it||'all',tab:tab||'all',priority:priority}))
             :g.io.log(`${m} is not a valid menu id; the icon needs to have an associated menu. All valid ids are listed in 'g.ui.menunames'. Failed to add element: `,el),
 
         g.ui.makelbl=(l,tlt)=>((_l=g.div())[g.cn]='settings-input-label'+(tlt?' help':''),_l.title=tlt,_l[g.it]=l,_l),
@@ -559,7 +569,6 @@
             var _i=g.div();
             _i[g.cn]='settings-input-signal';
             _i.title='Click to remap';
-            // _i[g.it]=_dflt;
 
             // Start recording when clicking on edit field
             g.io.mseclk(ev=>g.ui.km.handlemenuclk(ev,_el),_i,!0);
@@ -703,7 +712,7 @@
         g.ui.kb_debug=g.ui.makeinputbind('Toggle debug menu (alt)','debug',{key:'F2',mouse:null,pad:null},
             (ev,name)=>g.toggledebug(),
             'Toggle the visibility of the debug menu. This needs to be a different inputbind than the normal debug menu hotkey, for this mod to work'),
-        g.ui.addcomponent(g.ui.kb_debug,'controls',null,'controls'),
+        g.ui.addcomponent(g.ui.kb_debug,0,'controls',null,'controls'),
 
         //-------------------------------------------------------------------
 
@@ -759,30 +768,30 @@
             (ev,name)=>g.io.tvis(rt.ui,s=>(rt.hidden=!s,rt.started=!1)),
             'Toggle the visibility of the Road Time Display.'),
 
-        rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
-        rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
-        rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
-        rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.io.log(e),'Test label'),
-        rt.test5=g.ui.makeinputbind('Test keybind','test1',{key:'KeyB',mouse:null,pad:null},
-            (ev,name)=>g.io.log('Test. Pressed test 1 keybind'),
-            'Test label'),
-        rt.test6=g.ui.makeinputbind('Test keybind 2','test2',{key:'KeyC',mouse:null,pad:null},
-            (ev,name)=>g.io.log('Test. Pressed test 2 keybind'),
-            'Test label 2'),
+        // rt.test1=g.ui.makebttn('Test button',e=>g.io.log('Pressed button',e),'Test label'),
+        // rt.test2=g.ui.makedropdown('Test dd',['Opt 1','Opt 2','Opt 3'],0,e=>g.io.log('Selected dd option',e),'Test label'),
+        // rt.test3=g.ui.makesection('Test section',[rt.st_resetoffroad,rt.st_resetscore,rt.test1,rt.test2]),
+        // rt.test4=g.ui.makeslider('Test slider',40,80,60,1,e=>g.io.log(e),'Test label'),
+        // rt.test5=g.ui.makeinputbind('Test keybind','test1',{key:'KeyB',mouse:null,pad:null},
+        //     (ev,name)=>g.io.log('Test. Pressed test 1 keybind'),
+        //     'Test label'),
+        // rt.test6=g.ui.makeinputbind('Test keybind 2','test2',{key:'KeyC',mouse:null,pad:null},
+        //     (ev,name)=>g.io.log('Test. Pressed test 2 keybind'),
+        //     'Test label 2'),
 
-        g.ui.addcomponent(rt.st_resetoffroad,'config'),
-        g.ui.addcomponent(rt.st_resetscore,'config'),
-        g.ui.addcomponent(rt.kb_toggleui,'controls',null,'controls'),
+        g.ui.addcomponent(rt.st_resetoffroad,10,'config'),
+        g.ui.addcomponent(rt.st_resetscore,11,'config'),
+        g.ui.addcomponent(rt.kb_toggleui,101,'controls',null,'controls'),
 
-        g.ui.addcomponent(rt.test1,'config'),
-        g.ui.addcomponent(rt.test2,'config'),
-        g.ui.addcomponent(rt.test3,'config'),
-        g.ui.addcomponent(rt.test4,'config'),
-        g.ui.addcomponent(rt.test5,'controls','controls','controls'),
-        g.ui.addcomponent(rt.test6,'controls',null,'controls'),
+        // g.ui.addcomponent(rt.test1,'config'),
+        // g.ui.addcomponent(rt.test2,'config'),
+        // g.ui.addcomponent(rt.test3,'config'),
+        // g.ui.addcomponent(rt.test4,'config'),
+        // g.ui.addcomponent(rt.test5,'controls','controls','controls'),
+        // g.ui.addcomponent(rt.test6,'controls',null,'controls'),
 
-        rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
-        g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
+        // rt.test4=g.ui.makebttn('Test button 2',e=>g.io.log('Pressed button',e),'Test label'),
+        // g.ui.addcomponent(rt.test4,'controls',g.ui.inputtypes[1],'controls'),
 
         // Start loop roadtime
         setInterval(_=>(
@@ -852,8 +861,8 @@
             async(ev,name)=>wd.update(await wd.switchstate()),
             'Switch between drive settings. Toggles between AWD and FWD'),
 
-        g.ui.addcomponent(wd.kb_toggleui,'controls',null,'controls'),
-        g.ui.addcomponent(wd.kb_switchdrive,'controls',null,'controls'),
+        g.ui.addcomponent(wd.kb_switchdrive,20,'controls',null,'controls'),
+        g.ui.addcomponent(wd.kb_toggleui,102,'controls',null,'controls'),
 
         //----------------------------------------------------------------------------------
         // BOOST STATE DISPLAY
@@ -867,7 +876,7 @@
         bs.kb_toggleui=g.ui.makeinputbind('Boost State Display','bs_display',{key:'Digit3',mouse:null,pad:null},
             (ev,name)=>g.io.tvis(bs.ui),
             'Toggle the visibility of the Boost State Display.'),
-        g.ui.addcomponent(bs.kb_toggleui,'controls',null,'controls'),
+        g.ui.addcomponent(bs.kb_toggleui,103,'controls',null,'controls'),
         
 
 
