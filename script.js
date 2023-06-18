@@ -36,15 +36,15 @@
         // Fire the event for all listeners of that type (since there are some custom types, `evtype` is used to denote the type instead)
         // If target is set, the target of the event must be equal to or child of the registered target.
         // Also checks if the targets still exist in DOM, and if not remove them from the event list (to prevent mem leak)
-        g.io.fireev=(t,e)=>(e.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.inDOM(x.target)&&!x.persistent?_del.push(x):0,x.target==null||x.target.contains(e.target))).forEach(x=>x.callback(e)),_del.forEach(x=>g.io.ev[t].remove(x))),
+        g.io.fireev=(t,ev)=>(ev.evtype=t,_del=[],g.io.ev[t]?.filter(x=>(x.target!=null&&!g.inDOM(x.target)&&!x.persistent?_del.push(x):0,x.target==null||x.target.contains(ev.target))).forEach(x=>x.callback(ev)),_del.forEach(x=>g.io.ev[t].remove(x))),
         // Check for the keypress event (fired when a key is pressed down for the first time, until it is lifted up again)
-        g.io.chkpress=(t,e)=>(in__code=e.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',e)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
+        g.io.chkpress=(t,ev)=>(in__code=ev.code,in__key=g.io.keys.includes(in__code),t=='keydown'&&!in__key?(g.io.keys.push(in__code),g.io.fireev('keypress',ev)):t=='keyup'&&in__key?g.io.keys.remove(in__code):0),
         // Handler for all event types; checks type and calls the respective attached callback methods
-        g.io.handler=e=>(in__type=e.type,g.io.fireev(in__type,e),g.io.chkpress(in__type,e)),
+        g.io.handler=ev=>(in__type=ev.type,g.io.fireev(in__type,ev),g.io.chkpress(in__type,ev)),
         g.io.ael=(t,e,el)=>(el||g.evroot)[g.ael](t,e||g.io.handler),
 
         // Register all event listeners to default handler
-        g.io.inputtypes=['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','mousemove','click','keydown','keyup'],
+        g.io.inputtypes=['mousedown','mouseup','mouseover',/*'mouseleave',*/'mouseout','mousemove','click','keydown','keyup','padbttndown','padbttnup','padbttnpressure','padaxistilt'],
         g.io.inputtypes.forEach(x=>g.io.ael(x)),
 
         g.io.kydn=(e,el,p)=>g.io.add('keydown',e,el,p),
@@ -58,6 +58,11 @@
         g.io.mseout=(e,el,p)=>g.io.add('mouseout',e,el,p),
         g.io.mseclk=(e,el,p)=>g.io.add('click',e,el,p),
         g.io.msemv=(e,el,p)=>g.io.add('mousemove',e,el,p),
+        // Custom events triggered by gamepad polling loop
+        g.io.padbtndn=(e,el,p)=>g.io.add('padbttndown',e,el,p),
+        g.io.padbtnup=(e,el,p)=>g.io.add('padbttnup',e,el,p),
+        g.io.padbtnpressure=(e,el,p)=>g.io.add('padbttnpressure',e,el,p),
+        g.io.padaxistlt=(e,el,p)=>g.io.add('padaxistilt',e,el,p),
 
         // Default log function. Should be used for debug output.
         g.io.log=console.log,
@@ -256,8 +261,8 @@
 
 
         // Draw elements to open menu
-        g.ui.out.drawcomponent=(s,el,menu)=>(el.__cb?.(menu),s.prepend(el)),
-        g.ui.out.draw=(s,m,it,tab)=>g.ui.els.filter(x=>x.m==m&&(x.it==it||x.it=='all')&&(x.tab==tab||x.tab=='all')).forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x.id],{m:m,it:it,tab:tab})),
+        g.ui.out.drawcomponent=(s,el,menu)=>(el.__cb?.(menu),s.prepend(el),g.io.log('drawing...')),
+        g.ui.out.draw=(s,m,it,tab)=>g.ui.els.filter(x=>x.m==m&&(x.it==it||x.it=='all')&&(it!==g.ui.inputtypes[2]||g.ui.km.gp.connected)&&(x.tab==tab||x.tab=='all')).forEach(x=>g.ui.out.drawcomponent(s,g.ui.elslst[x.id],{m:m,it:it,tab:tab})),
 
         // Draw current open menu (also updates the current stored input type and tab names)
         g.ui.out.drawcurrent=(ss,m)=>ss?(g.ui.out.menu.it=g.ui.getinputtype(ss),g.ui.out.menu.tab=g.ui.gettab(ss),_s=ss[g.qs]('.settings-input-list'),g.io.log('drawing ',m,'... it: ',g.ui.out.menu.it,' tab: ',g.ui.out.menu.tab,_s),
@@ -332,26 +337,31 @@
             var _handler=ev=>g.ui.addedcomponents.includes(id)&&g.ui.km.checkbind(name,ev)?e(ev,name):0;
             g.io.kydn(_handler);
             g.io.msedn(_handler);
-            // TODO game pad
+            g.io.padbtndn(_handler);
+            g.io.padaxistlt(_handler);
         },
 
 
         // convert input type to respective value in [key, mouse, pad]
         g.ui.km.parsebindtype=it=>['key','mouse','pad'].includes(it)?it:it===g.ui.inputtypes[0]?'key':it===g.ui.inputtypes[1]?'mouse':it===g.ui.inputtypes[2]?'pad':'unknown',
         // set bind and sync with local storage
-        g.ui.km.setbind=(n,it,v)=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]=v,g.ls.setkey(g.ui.lsn_ststates,_id,g.ui.km.inputbinds[_id])),
+        g.ui.km.setbind=(n,it,v)=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]=v,g.ui.setlsstate(_id,g.ui.km.inputbinds[_id])),
+        //,g.ls.setkey(g.ui.lsn_ststates,_id,g.ui.km.inputbinds[_id])
         // get bind
         g.ui.km.getbind=(n,it='key')=>(_id=g.ui.km.nameidmap[n],g.ui.km.inputbinds[_id][g.ui.km.parsebindtype(it)]),
         
         g.ui.km.iskeyev=type=>['keydown','keypress','keyup'].includes(type),
         g.ui.km.ismouseev=type=>['mousedown','mouseup','mousemove','mouseleave','mouseout','mouseover','click'].includes(type),
-        g.ui.km.ispadev=type=>!1, // TODO
+        g.ui.km.ispadev=type=>['padbttndown','padbttnup','padbttnpressure','padaxistilt'].includes(type),
         // Check if bind is activated.
         g.ui.km.checkbind=(n,ev)=>
             g.ui.km.iskeyev(ev.type)?ev.code===g.ui.km.getbind(n,'key')
             :g.ui.km.ismouseev(ev.type)?ev.buttons&g.ui.km.getbind(n,'mouse')
-            :g.ui.km.ispadev(ev.type)?!1 // TODO
-            :!1,
+            :g.ui.km.ispadev(ev.type)?(
+                _bind=g.ui.km.getbind(n,'pad'),
+                // Check if bind is correct pad input type (button or axis) and check if input index is the same.
+                ev.type=='padbttndown'&&_bind?.type=='bttn'&&_bind?.value==ev.detail.index||ev.type=='padaxistilt'&&_bind?.type=='axis'&&_bind?.value==ev.detail.index
+            ):!1,
         
         g.ui.km.iscorrecttype=(evtype,bindtype)=>(
             _bt=g.ui.km.parsebindtype(bindtype),
@@ -363,7 +373,7 @@
         g.ui.km.parseevent=ev=>
             g.ui.km.iskeyev(ev.type)?g.ui.km.parsekey(ev.code)
             :g.ui.km.ismouseev(ev.type)?g.ui.km.parsemouse(ev.buttons)
-            :g.ui.km.ispadev(ev.type)?g.ui.km.parsepad(ev)
+            :g.ui.km.ispadev(ev.type)?g.ui.km.parsepad(ev.detail)
             :(console.error('Unknown input type; value cannot be displayed.'),{t:null,v:null,s:'Unknown'}),
         
         // Convert code to string value
@@ -376,7 +386,10 @@
         
         g.ui.km.parsekey=code=>/Key[a-z]/i.test(code)?{t:'key',v:code,s:code.slice(-1)}:{t:'key',v:code,s:code},
         g.ui.km.parsemouse=bttn=>bttn&1?{t:'mouse',v:1,s:'Left Click'}:bttn&2?{t:'mouse',v:2,s:'Right Click'}:bttn&4?{t:'mouse',v:4,s:'Middle Click'}:{t:'mouse',v:null,s:'Unknown'},
-        g.ui.km.parsepad=bttn=>({t:'pad',v:null,s:'unknown'}),// TODO
+        g.ui.km.parsepad=detail=>
+            detail.type=='padbttndown'?({t:'pad',v:{type:'bttn',value:detail.index},s:`Pad Button ${detail.index}`})
+            :detail.type=='padaxistilt'?({t:'pad',v:{type:'axis',value:detail.index},s:`Pad Axis ${detail.index}`})
+            :({t:'pad',v:null,s:'unknown'}),
 
         g.ui.km.current=null,
         g.ui.km.currstrval=null,
@@ -463,7 +476,7 @@
         //--------------------------
         // Tracking game pad
 
-        g.ui.km.gp={connected:!1,connectedids:[],interval:0,pressed:{}},
+        g.ui.km.gp={connected:!1,connectedids:[],interval:0,pressed:{},bttnpressure:{},axisvalues:{}},
 
         g.io.ael('gamepadconnected',ev=>g.ui.km.gp.connect(ev),window),
         g.io.ael('gamepaddisconnected',ev=>g.ui.km.gp.disconnect(ev),window),
@@ -493,6 +506,22 @@
         ),
         g.ui.km.gp.checkpressed=(padidx,bttnidx)=>g.ui.km.gp.pressed[padidx]?.[bttnidx]||!1,
 
+        g.ui.km.gp.setbttnpressure=(padidx,bttnidx,val)=>(
+            _bttnpressure=g.ui.km.gp.bttnpressure,
+            _bttnpressure[padidx]=_bttnpressure[padidx]||{},
+            _bttnpressure[padidx][bttnidx]=val
+        ),
+
+        g.ui.km.gp.getbttnpressure=(padidx,bttnidx)=>g.ui.km.gp.bttnpressure[padidx]?.[bttnidx]||!1,
+
+        g.ui.km.gp.setaxisvalue=(padidx,axisidx,val)=>(
+            _axisvalues=g.ui.km.gp.axisvalues,
+            _axisvalues[padidx]=_axisvalues[padidx]||{},
+            _axisvalues[padidx][axisidx]=val
+        ),
+
+        g.ui.km.gp.getaxisvalue=(padidx,axisidx)=>g.ui.km.gp.axisvalues[padidx]?.[axisidx]||!1,
+
         g.ui.km.gp.fireevents=pad=>(
             pad.buttons.forEach((bttn,bttnidx)=>(
                 bttn.pressed?(
@@ -500,18 +529,37 @@
                     g.ui.km.gp.setpressed(pad.index,bttnidx,!0)
                 )
                 :g.ui.km.gp.checkpressed(pad.index,bttnidx)?(
-                    g.ui.km.gp.fireevent('padbttnup',pad,bttn,idx),
+                    g.ui.km.gp.fireevent('padbttnup',pad,bttn,bttnidx),
                     g.ui.km.gp.setpressed(pad.index,bttnidx,!1)
+                ):0,
+                bttn.value!==g.ui.km.gp.getbttnpressure(pad.index,bttnidx)?(
+                    g.ui.km.gp.fireevent('padbttnpressure',pad,bttn,bttnidx),
+                    g.ui.km.gp.setbttnpressure(pad.index,bttnidx,bttn.value)
+                ):0
+                
+
+            )),
+            pad.axes.forEach((val,axisidx)=>(
+                // Tilting of axes controller.
+                val!==g.ui.km.gp.getaxisvalue(pad.index,axisidx)?(
+                    g.ui.km.gp.fireevent('padaxistilt',pad,val,axisidx),
+                    g.ui.km.gp.setaxisvalue(pad.index,axisidx,val)
                 ):0
             ))
-            // TODO fire events for analog sticks too
         ),
 
-        g.ui.km.gp.fireevent=(type,pad,bttn,bttnidx)=>(
-            g.io.log('fired event for',pad,bttn),
-            _ev={type:type,pad:pad,bttn:bttn,index:bttnidx}
+        g.ui.km.gp.fireevent=(type,pad,val,inputidx)=>(
+            g.io.log('fired event for',pad,val),
+            _evdetails={type:type,pad:pad,value:val,index:inputidx},
+            _ev=new CustomEvent(type,{detail:_evdetails,bubbles:!0}),
+            g.dc.activeElement[g.de](_ev)
 
         ),
+
+        g.io.padbtndn(ev=>g.io.log(ev)),
+        g.io.padbtnup(ev=>g.io.log(ev)),
+        g.io.padbtnpressure(ev=>g.io.log(ev)),
+        g.io.padaxistlt(ev=>g.io.log(ev)),
 
         //-----------------------------------------------------------------------------------------------------
 
