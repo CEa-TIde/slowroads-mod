@@ -125,7 +125,7 @@
         // functions responsible for managing ui in the menus
         g.ui={f:null,elslst:{},els:[],uid:0,lsn_ststates:'mod_ststates',se:'settings-input-row mod-entry ',lbl:'settings-input-label',eo:'settings-input-enum_option',menubar:g.dc[g.qs]('#menu-bar')},
         // ids of all menu icons (part of the menu icon src). Divider is a special case for the divide line.
-        g.ui.iconnames=['kofi','feedback','vol','controls','config','divider','circle'],
+        g.ui.iconnames=['kofi','vol','controls','config','divider','circle'],
         // all ids of icon that have a menu attached to it.
         g.ui.menunames=['controls','config'],
         // All icons that don't close the current menu when hovered over (because they don't have one of their own)
@@ -319,7 +319,7 @@
             g.io.log('current state: ',g.ui.out.menu.focus)
         ):0,
         // Add event listeners for opening menu (by click and by hover; former starts focus)
-        g.ui.iconnames.forEach(m=>(_e=g.ui.out.handlemenu,_icon=g.ui.geticon(m),g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon))),
+        g.ui.iconnames.forEach(m=>(_e=g.ui.out.handlemenu,_icon=g.ui.geticon(m),_icon?(g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon)):0)),
 
         // Close menu if mouse leaves screen (and setting isn't focused)
         g.io.mselv(_=>g.ui.out.resetmenu(!1),g.evroot),
