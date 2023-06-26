@@ -67,15 +67,15 @@
             this.padaxistlt=(e,el,p)=>this.add('padaxistilt',e,el,p);
 
             // Default log function. Should be used for debug output.
-            this.log=console.log,
+            this.log=console.log;
             // List of attached hooks. Format: [{cb: <callback function>, enabled: <bool>},...]
-            this.loghooks=[],
+            this.loghooks=[];
             // Attach hook. Passed value should be stored first so that the `enabled` flag can be manipulated.
-            this.addloghook=x=>typeof x.cb==='function'?g.loghooks.push(x):this.log('Callback is not set. Format: {cb: <callback function>, enabled: <bool>}');
+            this.addloghook=x=>typeof x.cb==='function'?this.loghooks.push(x):this.log('Callback is not set. Format: {cb: <callback function>, enabled: <bool>}');
             // Call all attached hooks with the passed arguments.
             this.loghook=v=>this.loghooks.forEach(x=>x.enabled?x.cb(v):0);
             // Overwrite console.log function with hook so that the output can be read. Argument array is passed to the hooks.
-            console.log=function(...args){this.log(...args);this.loghook(args)};
+            console.log=(t=>function(...args){t.log(...args);t.loghook(args)})(this);
 
             // Toggle mod ui
             this.tvis=(el,cb=null)=>(el.style.display=(_s=el.style.display=='none')?'block':'none',cb?.(_s));
