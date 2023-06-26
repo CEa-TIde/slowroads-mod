@@ -17,6 +17,10 @@
         g.pos=_=>[(_x=g.dc[g.qs]("#ui-debug-position")[g.it].split("x"))[0],_x[1].split(" ")[2].split("z")[0]],
         //function that returns the distance travelled
         g.dist=_=>parseInt(g.dc[g.qs]('#ui-debug-node')[g.it])/100,
+        //function that returns the current seed
+        g.getseed=_=>g.ls.getval('seed'),
+        // function that returns the current topo
+        g.gettopo=_=>g.ls.getval('config-scene-topography'),
         g.div=_=>g.dc.createElement("div"),
         // Add 'remove by value' function to Array
         Array.prototype.remove=function(el){_x=this.indexOf(el);_x!=-1?this.splice(_x,1):0;return this},
@@ -114,10 +118,11 @@
         // Local storage management
         g.ls=new function(){
             this.ls=localStorage;
-            this.get=k=>JSON.parse(this.ls.getItem(k));
+            this.getval=k=>this.ls.getItem(k);
+            this.get=k=>JSON.parse(this.getval(k));
             this.set=(k,v)=>this.ls.setItem(k,JSON.stringify(v));
             this.del=k=>this.ls.removeItem(k);
-            // Get value from key object in ls, or default if doesn't exist. Should only be used for objects containing keys, not single-value variables; use g.ls.get then instead.
+            // Get value from key object in ls, or default if doesn't exist. Should only be used for objects containing keys, not single-value variables; use g.ls.get/g.ls.getval then instead.
             this.getwdflt=(n,k,d)=>(_v=(this.get(n)||{})[k])!==undefined?_v:d;
             // Set value of  key object in ls. Object is created if it didn't exist yet.
             this.setkey=(n,k,v)=>(_s=this.get(n)||{},_s[k]=v,this.set(n,_s));
