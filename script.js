@@ -1,3 +1,4 @@
+// regex to purge all comments, and whitespace not part of a string
 //((?<=(.|\n))\s*\/\/[^\n]*|\s*\n\s*)
 (async _=>
     typeof __a=='undefined'?(
@@ -148,7 +149,8 @@
             this.menubar=g.dc[g.qs]('#menu-bar');
 
             // ids of all menu icons (part of the menu icon src). Divider is a special case for the divide line.
-            this.iconnames=['kofi','vol','controls','config','divider','circle'];
+            this.righticonnames=['kofi','vol','controls','config','divider','circle'];
+            this.lefticonnames=['globe','divider','panorama','v_config'];
             // all ids of icon that have a menu attached to it.
             this.menunames=['controls','config'];
             // All icons that don't close the current menu when hovered over (because they don't have one of their own)
@@ -156,7 +158,20 @@
             // ids of input types (part of the icon src)
             this.inputtypes=['controls','controls_mouse_icon','controls_controller','all'];
 
-            this.geticon=m=>m=='divider'?g.dc[g.qs]('#menu-bar-right>.menu-bar-vertical-divider'):(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(x=>this.iconnames.includes(m)&&x.firstChild.src.includes(m))).length?_m[0]:null;
+            // Find the icon of a menu. `isright` boolean whether or not it is the right menu
+            this.geticon=(m,isright=!0)=>isright?(
+                m=='divider'?
+                    g.dc[g.qs]('#menu-bar-right>.menu-bar-vertical-divider')
+                    :(_m=[...g.dc[g.qsa]('#menu-bar-right>.menu-item')].filter(
+                        x=>this.righticonnames.includes(m)&&x.firstChild.src.includes(m)
+                    )).length?_m[0]:null
+            ):(
+                m=='divider'?
+                    g.dc[g.qs]('#menu-bar-left>.menu-bar-vertical-divider')
+                    :(_m=[...g.dc[g.qsa]('#menu-bar-left>.menu-item')].filter(
+                        x=>this.lefticonnames.includes(m)&&x.firstChild.src.includes(m)
+                    )).length?_m[0]:null
+            );
             this.settinglist=_=>g.dc[g.qs]('#menu-bar-right>.settings-input-list');
 
             
@@ -243,7 +258,7 @@
             this.curmlock={m:null,ss:null,it:null};
 
             // Open a menu icon
-            this.openicon=m=>(_m=this.geticon(m),_m?(g.io.fakemseov(_m),!0):(console.error(`Invalid menu name: ${m}`),!1));
+            this.openicon=(m,isright=!0)=>(_m=this.geticon(m,isright),_m?(g.io.fakemseov(_m),!0):(console.error(`Invalid menu name: ${m}`),!1));
             // Save current input state
             this.savetabstate=(m,ss=null)=>(this.curmlock.m=m,ss&&this.menunames.includes(m)?(g.io.log('saving tabstate...'),this.curmlock.ss=ss,this.curmlock.it=this.getinputtype(ss)):0);
             // Load back input state (and reset save)
@@ -252,19 +267,25 @@
                 :g.io.log('Loading failed. Settings window not in DOM.',this.curmlock.ss),
                 this.curmlock={m:null,ss:null,it:null});
 
-            // Automatically open the menu to the correct input type and tab
+            // Automatically open right menu to the correct input type and tab
             // If settings tab didn't open, unlock menu again.
             // First save input type before changing tabs.
             // returns true if menu opened successfully.
-            this.openmenu=async(m,it=null,tab=null)=>(this.out.resetmenu(),this.menulock(1),_opened=this.openicon(m),await g.wait(1),_ss=g.dc[g.qs]('.settings-sidebar'),
+            this.openrightmenu=async(m,it=null,tab=null)=>(this.out.resetmenu(),this.menulock(1),_opened=this.openicon(m),await g.wait(1),_ss=g.dc[g.qs]('.settings-sidebar'),
                 _opened&&_ss?(this.savetabstate(m,_ss),it?(this.setinputtype(_ss,it),await g.wait(1)):0,tab?this.settab(_ss,tab):0,await g.wait(1),!0):(this.menulock(0),!1));
 
-            // Close menu by clicking on the input blocker, or if that doesn't exist, fake mouseout the icon. If applicable, first revert to original tab.
-            this.closemenu=async _=>(_m=this.curmlock.m,await this.loadtabstate(),
+            // Close right menu by clicking on the input blocker, or if that doesn't exist, fake mouseout the icon. If applicable, first revert to original tab.
+            this.closerightmenu=async _=>(_m=this.curmlock.m,await this.loadtabstate(),
                 _ib=g.dc[g.qs]('#input-blocker'),_ib?g.io.fakemsedn(_ib):g.fakemseout(this.geticon(_m)),this.menulock(0));
 
+            // Open left menu
+            this.openleftmenu=async(m,tab=null)=>(this.menulock(1),this.curmlock.m=m,this.openicon(m,!1),await g.wait(1));
+
+            // Close left menu
+            this.closeleftmenu=_=>(_m=this.curmlock.m,g.fkemseout(this.geticon(_m)),this.menulock(0));
+
             // Open menu, manipulate settings as set by callback function, close menu
-            this.changemenu=async(e,m,it=null,tab=null)=>{var _open=await this.openmenu(m,it,tab);if(_open){var _v=await e();await this.closemenu();return _v}return null};
+            this.changemenu=async(e,m,it=null,tab=null)=>{var _open=await this.openrightmenu(m,it,tab);if(_open){var _v=await e();await this.closerightmenu();return _v}return null};
             
             // Get a setting in the currently open setting menu + input type + tab (sections can also be selected)
             this.getsetting=n=>(_o=[...g.dc[g.qsa]('.settings-input-list .settings-input-row')].filter(
@@ -350,7 +371,7 @@
             // END g.ui.out
 
             // Add event listeners for opening menu (by click and by hover; former starts focus)
-            this.iconnames.forEach(m=>(_e=this.out.handlemenu,_icon=this.geticon(m),_icon?(g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon)):0));
+            this.righticonnames.forEach(m=>(_e=this.out.handlemenu,_icon=this.geticon(m),_icon?(g.io.mseov(_e(m,!1,_icon),_icon),g.io.msedn(_e(m,!0,_icon),_icon)):0));
 
             // Close menu if mouse leaves screen (and setting isn't focused)
             g.io.mselv(_=>this.out.resetmenu(!1),g.evroot);
