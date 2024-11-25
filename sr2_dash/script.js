@@ -194,7 +194,7 @@ const IGNORE_STORAGE_ENTRY = {
     })(),
 
     // no entries for undefined, boolean, and symbol
-}
+};
 
 
 
@@ -617,7 +617,7 @@ const InputHandler = class {
         hookElement.addEventListener("gamepaddisconnected", this.#gamepadEventHandler);
 
     }
-}
+};
 
 
 //-----------------------------------------------
@@ -626,4 +626,7 @@ const InputHandler = class {
 
 
 // return packed object so these variables can be used outside the eval() for debugging
-[ InputHandler, StorageHandler ]
+new function() {
+    this.InputHandler = InputHandler;
+    this.StorageHandler = StorageHandler;
+}
