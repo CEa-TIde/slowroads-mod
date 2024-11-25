@@ -1,1 +1,1 @@
-console.log("test")
+import { InputHandler } from 'inputHandler';
