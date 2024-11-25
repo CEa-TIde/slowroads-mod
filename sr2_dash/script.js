@@ -436,7 +436,8 @@ const InputHandler = class {
     constructor(hookElement, eventCallback) {
         if (!(hookElement && hookElement instanceof Element)) throw new TypeError("Expected DOM Element for the hook.");
         this.eventHook = hookElement;
-        if (typeof this.#eventCallback !== "function") throw new TypeError("Expected function for eventCallback");
+        
+        if (typeof eventCallback !== "function") throw new TypeError("Expected function for eventCallback");
         this.#eventCallback = eventCallback;
 
         this.#addEventListeners(this.eventHook);
@@ -622,3 +623,7 @@ const InputHandler = class {
 //-----------------------------------------------
 // END Input Handler
 //-----------------------------------------------
+
+
+// return packed object so these variables can be used outside the eval() for debugging
+[ InputHandler, StorageHandler ]
