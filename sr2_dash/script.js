@@ -597,7 +597,8 @@ const InputHandler = class {
 
     // setup function that hooks the event listeners into the provided DOM Element.
     #addEventListeners(hookElement) {
-        const addEventListener = (type, options = undefined) => hookElement.addEventListener(type, this.#inputEventHandler, options);
+        // NOTE: do not remove arrow callback function around inputEventHandler; it is required for the private functions to be captured in scope.
+        const addEventListener = (type, options = undefined) => hookElement.addEventListener(type, ev => this.#inputEventHandler(ev), options);
 
         //keyboard
         addEventListener("keydown");
