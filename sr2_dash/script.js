@@ -57,10 +57,10 @@ const StorageHandler = {
         }
     },
 
-    getOrDefault: function(objectKey) {
+    getOrDefault: function(key) {
         if (this.values[key]) return this.values[key];
         if (this.defaults[key]) return this.defaults[key];
-        throw new EvalError("No value or default value found for key: ", objectKey);
+        throw new EvalError("No value or default value found for key: ", key);
     },
 
     /**
