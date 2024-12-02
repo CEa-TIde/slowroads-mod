@@ -17,16 +17,22 @@ if (typeof importModule === 'undefined') {
 }
 
 // import all modules
-await importModule('storageHandler.js');
-await importModule('inputHandler.js');
-await importModule('uiHandler.js');
+importModule('storageHandler.js').then(
+    _ => importModule('inputHandler.js')
+).then(
+    _ => importModule('uiHandler.js')
+).then(
+    // return packed object so these variables can be used outside the eval() for debugging
+    new function() {
+        this.UIHandler = UIHandler;
+        this.InputHandler = InputHandler;
+        this.StorageHandler = StorageHandler;
+    }
+)
+// await importModule('inputHandler.js');
+// await importModule('uiHandler.js');
 
 
 
 
-// return packed object so these variables can be used outside the eval() for debugging
-new function() {
-    this.UIHandler = UIHandler;
-    this.InputHandler = InputHandler;
-    this.StorageHandler = StorageHandler;
-}
+
