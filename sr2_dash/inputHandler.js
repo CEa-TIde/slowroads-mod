@@ -1,4 +1,6 @@
 
+console.log('importing inputhandler.js');
+
 if (typeof __IMPORT_INPUTHANDLER__ !== 'undefined') return;
 __IMPORT_INPUTHANDLER__ = true;
 

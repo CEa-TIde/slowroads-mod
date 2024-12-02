@@ -1,4 +1,6 @@
 
+console.log('importing uihandler');
+
 if (typeof __IMPORT_UIHANDLER__ !== 'undefined') return;
 __IMPORT_UIHANDLER__ = true;
 

@@ -1,4 +1,5 @@
 
+console.log('importing storagehandler');
 if (typeof __IMPORT_STORAGEHANDLER__ !== 'undefined') return;
 __IMPORT_STORAGEHANDLER__ = true;
 

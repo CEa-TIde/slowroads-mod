@@ -3,7 +3,7 @@
 // __IMPORT_DIRNAME__: the base directory from which to import everything. This should be defined in the bookmark.js scripts, before the eval call.
 // __IMPORT_[capitalised module name]__: is set and checked when imported, to avoid a double import of the same module. Ex. __IMPORT_INPUTHANDLER__
 
-
+console.log('importing script.js');
 
 if (typeof importModule === 'undefined') {
     /**
