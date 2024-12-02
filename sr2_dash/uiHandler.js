@@ -1,8 +1,8 @@
 
 console.log('importing uihandler');
 
-if (typeof __IMPORT_UIHANDLER__ !== 'undefined') return;
-__IMPORT_UIHANDLER__ = true;
+// if (typeof __IMPORT_UIHANDLER__ !== 'undefined') throw new Error();
+// __IMPORT_UIHANDLER__ = true;
 
 //---------------------------------------------
 // START UI Handler
