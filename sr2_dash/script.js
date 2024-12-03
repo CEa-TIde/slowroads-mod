@@ -86,27 +86,14 @@ importModule('storageHandler.js').then(
     )
 );
 
-// importModule('storageHandler.js').then(
-//     StorageHandler => importModule('inputHandler.js')
-// ).then(
-//     _ => importModule('uiHandler.js')
-// ).then(
-//     // return packed object so these variables can be used outside the eval() for debugging
-//     _ => new function() {
-//         // TODO: UI Handler not in scope; what to do? First test in smaller setting
-//         this.UIHandler = UIHandler;
-//         this.InputHandler = InputHandler;
-//         this.StorageHandler = StorageHandler;
-//     }
-// )
-// // await importModule('inputHandler.js');
-// // await importModule('uiHandler.js');
-
-// called with all imports in scope
+// called with all imports in `this` bind.
 function main() {
-    console.log(this.StorageHandler);
-    console.log(this.InputHandler);
-    console.log(this.UIHandler);
+    const StorageHandler = this.StorageHandler;
+    const InputHandler = this.InputHandler;
+    const UIHandler = this.UIHandler;
+    console.log(StorageHandler);
+    console.log(InputHandler);
+    console.log(UIHandler);
 }
 
 

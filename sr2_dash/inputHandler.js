@@ -682,3 +682,5 @@ const InputHandler = class {
 //-----------------------------------------------
 // END Input Handler
 //-----------------------------------------------
+// return value for eval
+InputHandler;

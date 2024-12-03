@@ -421,3 +421,5 @@ StorageHandler.defaults.worldHistory = {
 //-------------------------------------------
 // END local Storage Handler
 // ----------------------------------------
+// return value for eval
+StorageHandler;

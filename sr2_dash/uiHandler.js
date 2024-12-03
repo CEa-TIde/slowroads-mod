@@ -110,3 +110,5 @@ class UIHandler {
 //--------------------------------------------
 // END UI Handler
 //-------------------------------------------
+// return value of eval
+UIHandler;
