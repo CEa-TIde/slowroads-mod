@@ -1,12 +1,5 @@
 
-console.log('importing inputhandler.js');
-
-// if (typeof __IMPORT_INPUTHANDLER__ !== 'undefined') return;
-// __IMPORT_INPUTHANDLER__ = true;
-
-
-// await importModule('storageHandler.js');
-
+console.log('importing inputHandler.js');
 
 //---------------------------------------------
 // START Input Handler
@@ -146,13 +139,15 @@ const InputHandler = class {
             // bound to range -1 to 1, (where the other key should be the opposite sign)
             // not part of a complement key pair:
             // bound to range 0 to 1
+            //TODO: remove complement key pair completely
             if (null === val) return null;
-            if (val < -1) val = -1;
+            if (val < 0) val = 0;
+            //if (val < -1) val = -1;
             if (val > 1) val = 1;
-            if (!this.#linkedState[key]) {
-                // not part of a complement pair
-                if (val < 0) val = 1;
-            }
+            // if (!this.#linkedState[key]) {
+            //     // not part of a complement pair
+            //     if (val < 0) val = 0;
+            // }
             return val;
         }
         /**
@@ -175,17 +170,17 @@ const InputHandler = class {
         #__set__(key, peripheral, val, isForLinked) {
             InputHandler.checkIsValidPeripheral(peripheral);
             if ((isNaN(val) || !(typeof val === "number")) && val !== null) throw new TypeError(`Value is not of type Number, or null: ${val}`);
-            // initialise object if not done yet
+            // state should be initialised first
             if (!this.#states[key]) {console.log(this.#states); throw new EvalError(`Input states for "${key}" were not initalised. Check if it has been added to "InputHandler.inputBindings".`);}
 
             val = this.#boundValue(key, val);
             this.#states[key][peripheral] = val;
 
             // if there is a linked state, set that to the opposite
-            if (!isForLinked && this.#linkedState[key]) {
-                if (null === val) this.#__set__(key, peripheral, null, true);
-                else this.#__set__(key, peripheral, -val, true);
-            }
+            // if (!isForLinked && this.#linkedState[key]) {
+            //     if (null === val) this.#__set__(key, peripheral, null, true);
+            //     else this.#__set__(key, peripheral, -val, true);
+            // }
         }
 
         /**

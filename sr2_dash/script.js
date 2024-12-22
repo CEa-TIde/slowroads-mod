@@ -1,7 +1,6 @@
 // would be nice to have it as a module, but that is not possible :<
 
 // __IMPORT_DIRNAME__: the base directory from which to import everything. This should be defined in the bookmark.js scripts, before the eval call.
-// DON'T: __IMPORT_[capitalised module name]__: is set and checked when imported, to avoid a double import of the same module. Ex. __IMPORT_INPUTHANDLER__
 
 console.log('importing script.js');
 
@@ -21,58 +20,10 @@ if (typeof importModule === 'undefined') {
     }
 }
 
-// __IMPORT_DIRNAME__ = "https://raw.githubusercontent.com/CEa-TIde/slowroads-mod/refs/heads/dev/sr2_dash/";
-// importModule = async function(script) {
-//   return new Promise(resolve=>resolve(eval(script)));
-// };
-
-// script1 = `console.log('script1'); var script1Var = 1; script1Var;`;
-// script2 = `console.log('script2'); var script2Var = 2; script2Var;`;
-// script3 = `console.log('script3'); var script3Var = 3; script3Var;`;
-
-// importModule(script1).then(
-//     script1Var => {
-//         console.log(script1Var);
-//         importModule(script2).then(
-//             script2Var => {
-//                 console.log(script1Var, script2Var);
-//                 importModule(script3).then(
-//                     script3Var => {
-//                         console.log(script1Var, script2Var, script3Var);
-                        
-//                         callback();
-//                     }
-//                 )
-//             }
-//         )
-//     }
-// );
-
-// function main() {
-//     console.log("main", script1Var, script2Var, script3Var);
-// }
-
-// y = await importModule(script1).then(v1=>{
-// 	console.log(v1);
-// 	return importModule(script2).then(v2=>{
-// 		console.log(v2);
-// 		console.log(v1);
-// 		return new function(){this.v1=v1;this.v2=v2;};
-// 	});
-// });
-
-// y = await importModule(script1).then(v1=>{
-// 	console.log(v1);
-// 	return importModule(script2).then(v2=>{
-// 		console.log(v2);
-// 		console.log(v1);
-// 		return new function(){this.v1=v1;this.v2=v2;};
-// 	});
-// });
-
 // import all modules
+// This is a workaround for ES6 modules not being allowed.
 // each .then() call adds the return value of eval to the scope
-// the main function is called with all dependencies in bound to `this`
+// the main function is called with all dependencies bound to `this`
 // NOTE: cyclic dependencies are not possible. AVOID. Make sure the modules are imported in the correct order.
 importModule('storageHandler.js').then(
     StorageHandler => importModule('inputHandler.js').then(
@@ -91,9 +42,12 @@ function main() {
     const StorageHandler = this.StorageHandler;
     const InputHandler = this.InputHandler;
     const UIHandler = this.UIHandler;
-    console.log(StorageHandler);
-    console.log(InputHandler);
-    console.log(UIHandler);
+
+    UIHandler.init();
+
+    let inputUIBox = new UIHandler.inputUIBox(document.body, "0", "20px");
+    console.log(inputUIBox);
+
 }
 
 
