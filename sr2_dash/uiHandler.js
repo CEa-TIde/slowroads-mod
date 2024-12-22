@@ -154,10 +154,10 @@ class UIHandler {
 
         let svgDefs = UIHandler.svgDefsElem;
         UIHandler.svgOffsets = {
-            'up': svgDefs.querySelector(".tri-fill-up feOffset")?.dy,
-            'right': svgDefs.querySelector(".tri-fill-right feOffset")?.dx,
-            'down': svgDefs.querySelector(".tri-fill-down feOffset")?.dy,
-            'left': svgDefs.querySelector(".tri-fill-left feOffset")?.dx,
+            'up': svgDefs.querySelector("#tri-fill-up feOffset")?.dy,
+            'right': svgDefs.querySelector("#tri-fill-right feOffset")?.dx,
+            'down': svgDefs.querySelector("#tri-fill-down feOffset")?.dy,
+            'left': svgDefs.querySelector("#tri-fill-left feOffset")?.dx,
         }
     }
 
