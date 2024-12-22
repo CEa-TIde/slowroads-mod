@@ -47,6 +47,7 @@ function main() {
 
     let inputUIBox = new UIHandler.InputUIBox(document.body, "0", "20px");
     console.log(inputUIBox);
+    console.log(UIHandler);
 
 }
 
